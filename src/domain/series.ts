@@ -96,7 +96,7 @@ export interface WeekDelta { start: Day; delta: number | null }
 
 /** Variation de la tendance, semaine après semaine (du lundi au dimanche), sur les `weeks` dernières semaines.
  *  `delta` = tendance de fin de semaine moins tendance de fin de la semaine d'avant ; vide (null) sans pesée dans la semaine
- *  ou sans point de départ. Une baisse est négative. */
+ *  ou sans point de départ (la première semaine compte si elle a au moins deux pesées). Une baisse est négative. */
 export function weeklyDeltas(points: WeightPoint[], today: Day, weeks = 8): WeekDelta[] {
   const r1 = (n: number) => Math.round(n * 10) / 10
   const trendAt = (day: Day): number | null => {
@@ -109,10 +109,11 @@ export function weeklyDeltas(points: WeightPoint[], today: Day, weeks = 8): Week
   for (let i = weeks - 1; i >= 0; i--) {
     const start = addDays(thisWeek, -7 * i)
     const end = addDays(start, 6)
-    const prev = trendAt(addDays(start, -1))
+    const inWeek = points.filter(p => p.day >= start && p.day <= end && p.day <= today)
     const cur = trendAt(end > today ? today : end)
-    const weighed = points.some(p => p.day >= start && p.day <= end && p.day <= today)
-    out.push({ start, delta: weighed && prev !== null && cur !== null ? r1(cur - prev) : null })
+    // point de départ : fin de la semaine d'avant ; pour la toute première semaine, sa première pesée (si elle en a au moins deux)
+    const prev = trendAt(addDays(start, -1)) ?? (inWeek.length >= 2 ? inWeek[0].trend : null)
+    out.push({ start, delta: inWeek.length > 0 && prev !== null && cur !== null ? r1(cur - prev) : null })
   }
   return out
 }

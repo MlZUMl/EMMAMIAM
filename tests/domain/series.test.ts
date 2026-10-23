@@ -87,7 +87,7 @@ describe('variation du poids semaine par semaine', () => {
     const pts = [pt('2026-10-12', 70), pt('2026-10-14', 69.7), pt('2026-10-20', 69.2), pt('2026-10-27', 69.3)]
     const w = weeklyDeltas(pts, today, 3)
     expect(w.map(x => x.start)).toEqual(['2026-10-12', '2026-10-19', '2026-10-26'])
-    expect(w[0].delta).toBeNull() // pas de point de départ avant la 1re semaine
+    expect(w[0].delta).toBe(-0.3) // 1re semaine : départ = sa première pesée (deux pesées dans la semaine)
     expect(w[1].delta).toBe(-0.5)
     expect(w[2].delta).toBe(0.1)
   })

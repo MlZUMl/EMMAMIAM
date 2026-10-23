@@ -45,14 +45,14 @@ export function WeightChart() {
     <>
       <Segmented label="Type de courbe" value={view} onChange={setView} options={[{ id: 'poids', label: 'Poids' }, { id: 'semaine', label: 'Par semaine' }]} />
       {view === 'semaine' ? (
-        filled.length >= 2 ? (
+        filled.length >= 1 ? (
           <>
             <DeltaBars items={weeks} unit="kg"
               label={`Variation du poids par semaine sur ${weeks.length} semaines : ${filled.map(w => fmtDiff(w.delta!, 'kg')).join(', ')}`} />
             <Legend items={[{ color: 'var(--mousse)', text: 'Baisse' }, { color: '#F0D18A', text: 'Hausse' }]} />
             <p className="muted small">Chaque barre compare ta tendance à celle de la semaine d'avant. Les petites hausses sont normales (eau, sel, cycle).</p>
           </>
-        ) : <p className="muted small">Il faut des pesées sur deux semaines différentes pour voir la variation semaine après semaine.</p>
+        ) : <p className="muted small">Une pesée par semaine suffit : dès que tu en as dans deux semaines différentes, la variation s'affiche ici.</p>
       ) : (
       <>
       <Segmented label="Période du poids" value={range} onChange={setRange} options={[{ id: '8s', label: '8 semaines' }, { id: 'tout', label: 'Tout' }]} />

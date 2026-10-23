@@ -650,9 +650,9 @@ test('courbes : jauge d\'eau en pourcentage, courbe de poids, barres d\'eau et d
   await expect(courbe.getByTestId('graph-courbe')).toBeVisible()
   await courbe.getByRole('tab', { name: 'Tout' }).click()
   await expect(courbe.getByTestId('graph-courbe')).toBeVisible()
-  // Variation par semaine : une seule semaine comparable pour l'instant, message explicatif
+  // Variation par semaine : une pesée par semaine suffit, une première barre apparaît dès la 2e semaine
   await courbe.getByRole('tab', { name: 'Par semaine' }).click()
-  await expect(courbe).toContainText('pesées sur deux semaines')
+  await expect(courbe.getByTestId('graph-variation')).toBeVisible()
   await courbe.getByRole('tab', { name: 'Poids' }).click()
   // Eau : sur 7 jours le 20 n'est plus visible (le 27 est la fin), sur 30 jours oui
   const eau = page.getByRole('region', { name: 'Eau sur les derniers jours' })
