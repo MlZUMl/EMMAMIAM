@@ -2,23 +2,20 @@
 // une action = une écriture, et les récompenses qui en découlent sont calculées au même moment.
 import type { DataStore, Op } from '../data/store'
 import type {
-  AvatarProfile, Commitment, CompanionProfile, DailyCheckin, Meal, MealPlan, PlanSlot, ProgressCapsule, Profile,
-  EnergyPreferences, NotificationPreferences, Workout, RitualAction, RestReason, Obstacle, HabitInsight, Snapshot, UserRecipe, CycleDay,
+  AvatarProfile, Commitment, CompanionProfile, DailyCheckin, Meal, ProgressCapsule, Profile,
+  EnergyPreferences, NotificationPreferences, Workout, RitualAction, RestReason, Obstacle, HabitInsight, Snapshot, CycleDay,
   FoodEntry, CustomFood, MealSlot, Equipment, NutritionSettings, BodyMeasurement,
 } from '../data/types'
-import { toDay, nowIso, weekStart, addDays, daysBetween, type Day } from '../lib/dates'
+import { toDay, nowIso, addDays, daysBetween, type Day } from '../lib/dates'
 import { desiredCyclePushes, forecast, periodRuns } from '../domain/cycle'
 import { uid } from '../lib/ids'
 import { defaultCommitments, defaultEnergyPrefs, defaultNotificationPrefs, defaultProfile, type RitualSetup } from '../domain/defaults'
 import { chooseMission, missionId, isMysteryDay } from '../domain/missions'
 import { buildCapsuleSnapshot } from '../domain/capsules'
 import type { Insight } from '../domain/analysis'
-import { RECIPES, recipeById } from '../domain/recipes'
-import { multiply } from '../domain/nutrition'
 import { HYDRATION_TIMES } from '../domain/defaults'
-import { porkInText, recipeHasPork } from '../domain/pork'
+import { porkInText } from '../domain/pork'
 import { balance, equipList, ownedItems, priceOf, shopItem, avatarEquip, avatarKey } from '../domain/shop'
-import { hash } from '../lib/ids'
 import { draftsFrom, toItem, type FavoriteItem } from '../domain/journal'
 
 const put = (table: Op['table'], row: any): Op => ({ type: 'put', table, row })
@@ -182,27 +179,6 @@ export function createActions(store: DataStore) {
 
     async deleteFoodEntry(id: string) { return store.remove('food_entries', id) },
 
-    /**
-     * Ajoute une recette au journal. Idempotent : une même recette, le même jour, dans le même repas,
-     * ne crée qu'une seule ligne (un second appui met à jour le nombre de portions).
-     */
-    async logRecipe(recipeId: string, day: Day, meal: MealSlot, portions: number) {
-      const r = recipeById(recipeId, s().user_recipes)
-      if (!r) return null
-      const id = `recette:${day}:${meal}:${recipeId}`
-      const per = r.nutrition
-      const n = per ? multiply(per, portions) : { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
-      const grams = r.catalog ? Math.round(r.ingredients.reduce((g, i) => g + (i.grams ?? 0), 0) * portions) : 0
-      const existed = s().food_entries.some(f => f.id === id)
-      await api.saveFoodEntry({
-        id, day, meal, source: 'recette', ref: r.id, name: r.title, brand: null, quantity: portions, unit: 'portion', grams,
-        portion_label: portions > 1 ? `${portions} portions` : '1 portion', per100: null,
-        kcal: n.kcal, protein: n.protein, carbs: n.carbs, fat: n.fat, fiber: n.fiber,
-        details: { portions, recipe_title: r.title, markers: r.markers }, category: 'recette',
-      })
-      return { id, existed }
-    },
-
     /** Recopie des éléments (repas d'un autre jour ou favori) en une seule écriture. */
     async addItems(items: FavoriteItem[], day: Day, meal: MealSlot, seed: string) {
       const drafts = draftsFrom(items, day, meal, seed)
@@ -256,60 +232,6 @@ export function createActions(store: DataStore) {
     },
 
     async deleteMeal(id: string) { return store.remove('meals', id) },
-
-    /** Recette personnelle : le contrôle « sans porc » bloque l'enregistrement. */
-    async saveUserRecipe(r: Omit<UserRecipe, 'created_at' | 'updated_at'>) {
-      if (recipeHasPork({ title: r.title, ingredients: r.ingredients, steps: r.steps })) throw new Error('PORC')
-      return store.commit([put('user_recipes', r)])
-    },
-    async deleteUserRecipe(id: string) { return store.remove('user_recipes', id) },
-
-    planFor(week: Day): MealPlan {
-      return s().meal_plans.find(p => p.week_start === week) ?? { id: week, week_start: week, slots: [], checked: [], created_at: '', updated_at: '' }
-    },
-
-    async setSlot(slot: PlanSlot) {
-      const week = weekStart(slot.day)
-      const plan = api.planFor(week)
-      const slots = plan.slots.filter(x => !(x.day === slot.day && x.moment === slot.moment)).concat(slot)
-      return store.commit([put('meal_plans', { ...plan, slots })])
-    },
-
-    async removeSlot(day: Day, moment: PlanSlot['moment']) {
-      const plan = api.planFor(weekStart(day))
-      return store.commit([put('meal_plans', { ...plan, slots: plan.slots.filter(x => !(x.day === day && x.moment === moment)) })])
-    },
-
-    /** Remplace le menu de la semaine (recettes conservées comprises) par `slots`. */
-    async applyMenu(week: Day, slots: PlanSlot[]) {
-      const plan = api.planFor(week)
-      return store.commit([put('meal_plans', { ...plan, slots })])
-    },
-    async clearWeek(week: Day) {
-      const plan = api.planFor(week)
-      return store.commit([put('meal_plans', { ...plan, slots: [], checked: [] })])
-    },
-
-    /** Complète les dîners vides de la semaine avec des recettes variées (sans hasard). */
-    async autoFillWeek(week: Day, portions: number) {
-      const plan = api.planFor(week)
-      const used = new Set(plan.slots.map(x => x.recipe_id))
-      const pool = RECIPES.filter(r => r.moment === 'midi-soir' && !used.has(r.id)).sort((a, b) => hash(week + a.id) - hash(week + b.id))
-      const slots = [...plan.slots]
-      let k = 0
-      for (let i = 0; i < 7 && k < pool.length; i++) {
-        const day = addDays(week, i)
-        if (slots.some(x => x.day === day && x.moment === 'soir')) continue
-        slots.push({ day, moment: 'soir', recipe_id: pool[k++].id, portions })
-      }
-      return store.commit([put('meal_plans', { ...plan, slots })])
-    },
-
-    async toggleShopping(week: Day, key: string) {
-      const plan = api.planFor(week)
-      const checked = plan.checked.includes(key) ? plan.checked.filter(k => k !== key) : [...plan.checked, key]
-      return store.commit([put('meal_plans', { ...plan, checked })], { derive: false })
-    },
 
     // ---------------------------------------------------------------- programmes sportifs
     async startProgram(id: string, start: Day = toDay()) {

@@ -1,24 +1,23 @@
 // Ajouter au journal : recherche (Ciqual puis marques Open Food Facts), code-barres,
-// mes aliments, recettes, ajout rapide. Tout aliment contenant du porc est refusé.
+// mes aliments, ajout rapide des calories. Tout aliment contenant du porc est refusé.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../app/state'
 import { Segmented, TopBar } from '../ui/components'
 import { IconChevron, IconPlus, IconSearch } from '../ui/icons'
 import type { CustomFood, FoodEntry, MealSlot } from '../data/types'
 import { customToItem, loadCiqual, searchFoods, searchOff, type FoodItem } from '../domain/foods'
-import { allRecipes } from '../domain/recipes'
 import { favoriteKcal, favoritesFor } from '../domain/journal'
 import { defaultMealSlot, MEALS, mealLabel } from '../domain/nutrition'
 import { toDay, type Day } from '../lib/dates'
-import { BarcodeScanner, CustomFoodSheet, entryToItem, lookupBarcode, MealChips, QuantitySheet, QuickAddForm, RecipeLogSheet, Thumb, smallPhoto } from './food-parts'
+import { BarcodeScanner, CustomFoodSheet, entryToItem, lookupBarcode, MealChips, QuantitySheet, QuickAddForm, Thumb, smallPhoto } from './food-parts'
 
-type Tab = 'chercher' | 'scanner' | 'mes' | 'recettes' | 'rapide'
+type Tab = 'rapide' | 'chercher' | 'scanner' | 'mes'
 
 export function FoodAdd({ query }: { query: URLSearchParams }) {
   const { today } = useApp()
   const day = (query.get('jour') as Day) || today
   const [meal, setMeal] = useState<MealSlot>((query.get('repas') as MealSlot) || defaultMealSlot())
-  const [tab, setTab] = useState<Tab>((query.get('onglet') as Tab) || 'chercher')
+  const [tab, setTab] = useState<Tab>((query.get('onglet') as Tab) || 'rapide')
   const [pick, setPick] = useState<{ item: FoodItem } | null>(null)
   return (
     <>
@@ -26,13 +25,11 @@ export function FoodAdd({ query }: { query: URLSearchParams }) {
       <main className="content no-tabs">
         <MealChips value={meal} onChange={setMeal} />
         <Segmented label="Façons d'ajouter" value={tab} onChange={setTab} options={[
-          { id: 'chercher', label: 'Rechercher' }, { id: 'scanner', label: 'Scanner' }, { id: 'mes', label: 'Mes aliments' },
-          { id: 'recettes', label: 'Recettes' }, { id: 'rapide', label: 'Rapide' },
+          { id: 'rapide', label: 'Calories' }, { id: 'chercher', label: 'Rechercher' }, { id: 'scanner', label: 'Scanner' }, { id: 'mes', label: 'Mes aliments' },
         ]} />
         {tab === 'chercher' && <SearchTab day={day} meal={meal} onPick={item => setPick({ item })} />}
         {tab === 'scanner' && <ScanTab onPick={item => setPick({ item })} />}
         {tab === 'mes' && <MineTab onPick={item => setPick({ item })} />}
-        {tab === 'recettes' && <RecipesTab day={day} meal={meal} />}
         {tab === 'rapide' && <section className="card"><QuickAddForm day={day} meal={meal} onDone={() => history.back()} /></section>}
       </main>
       {pick && <QuantitySheet item={pick.item} day={day} meal={meal} onClose={() => setPick(null)} />}
@@ -210,31 +207,6 @@ function MineTab({ onPick }: { onPick: (item: FoodItem) => void }) {
       </section>
       <button className="btn secondary" onClick={() => setEdit('new')}><IconPlus /> Créer un aliment</button>
       {edit && <CustomFoodSheet initial={edit === 'new' ? undefined : edit} onClose={() => setEdit(null)} onDelete={edit === 'new' ? undefined : async () => { await actions.deleteCustomFood(edit.id); setEdit(null) }} />}
-    </>
-  )
-}
-
-// ------------------------------------------------------------------ recettes
-function RecipesTab({ day, meal }: { day: Day; meal: MealSlot }) {
-  const { snap } = useApp()
-  const [q, setQ] = useState('')
-  const [pick, setPick] = useState<string | null>(null)
-  const list = useMemo(() => allRecipes(snap.user_recipes).filter(r => !q || r.title.toLowerCase().includes(q.toLowerCase())), [q, snap.user_recipes])
-  return (
-    <>
-      <input className="input" placeholder="Rechercher une recette" value={q} onChange={e => setQ(e.target.value)} aria-label="Rechercher une recette" />
-      <section className="card">
-        <div className="list">
-          {list.map(r => (
-            <button key={r.id} className="entry" onClick={() => setPick(r.id)}>
-              <Thumb src={r.photo ? smallPhoto(r.photo.url, 200) : null} emoji={r.emoji} />
-              <span className="grow"><span className="name">{r.title}</span><span className="muted small">{r.nutrition ? `${r.nutrition.kcal} kcal / portion` : 'valeurs non renseignées'}{r.minutes ? ` · ${r.minutes} min` : ''}</span></span>
-              <IconChevron style={{ width: 18, color: 'var(--texte-doux)' }} />
-            </button>
-          ))}
-        </div>
-      </section>
-      {pick && <RecipeLogSheet recipeId={pick} day={day} meal={meal} onClose={() => setPick(null)} />}
     </>
   )
 }

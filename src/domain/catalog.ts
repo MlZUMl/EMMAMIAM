@@ -6,7 +6,7 @@ export interface ZoneDef { id: string; name: string; description: string; slots:
 export const ZONES: ZoneDef[] = [
   { id: 'chambre', name: 'La chambre', description: 'Un petit nid douillet pour commencer.', slots: ['mur', 'fenetre', 'etagere', 'sol', 'lit', 'table'], weeksNeeded: 0 },
   { id: 'jardin', name: 'Le jardin', description: 'Il pousse au rythme de tes semaines actives.', slots: ['massif', 'arbre', 'allee', 'banc', 'eau'], weeksNeeded: 2 },
-  { id: 'bibliotheque', name: 'La bibliothèque', description: 'Un coin calme pour tes souvenirs et tes recettes.', slots: ['rayon', 'fauteuil', 'lampe', 'tapis'], weeksNeeded: 4 },
+  { id: 'bibliotheque', name: 'La bibliothèque', description: 'Un coin calme pour tes souvenirs et tes lectures.', slots: ['rayon', 'fauteuil', 'lampe', 'tapis'], weeksNeeded: 4 },
   { id: 'atelier', name: "L'atelier", description: 'Là où tes habitudes deviennent des créations.', slots: ['plan', 'mur', 'panier', 'plante'], weeksNeeded: 6 },
   { id: 'balcon', name: 'Le balcon étoilé', description: 'Pour regarder le chemin parcouru.', slots: ['ciel', 'rambarde', 'coussin'], weeksNeeded: 8 },
 ]
@@ -36,8 +36,8 @@ export const ITEMS: ItemDef[] = [
   { id: 'monstera', name: 'Monstera', zone: 'atelier', slot: 'plante', how: 'Objectif d\'eau atteint 7 jours', emoji: '🌿' },
   { id: 'fontaine', name: 'Petite fontaine', zone: 'jardin', slot: 'eau', how: 'Objectif d\'eau atteint 21 jours', emoji: '⛲' },
   { id: 'panier-fruits', name: 'Panier de fruits', zone: 'atelier', slot: 'panier', how: 'Repas notés 3 jours', emoji: '🧺' },
-  { id: 'livre-recettes', name: 'Livre de recettes', zone: 'bibliotheque', slot: 'rayon', how: 'Repas notés 14 jours', emoji: '📖' },
-  { id: 'epices', name: 'Étagère à épices', zone: 'atelier', slot: 'mur', how: '5 recettes différentes cuisinées', emoji: '🫙' },
+  { id: 'livre-recettes', name: 'Livre de cuisine', zone: 'bibliotheque', slot: 'rayon', how: 'Repas notés 14 jours', emoji: '📖' },
+  { id: 'epices', name: 'Étagère à épices', zone: 'atelier', slot: 'mur', how: 'Repas notés 30 jours', emoji: '🫙' },
   { id: 'carnet', name: 'Carnet fleuri', zone: 'chambre', slot: 'lit', how: 'Ton premier check-in', emoji: '📔' },
   { id: 'tasse', name: 'Tasse fumante', zone: 'bibliotheque', slot: 'lampe', how: '10 check-ins', emoji: '☕' },
   { id: 'boite-souvenirs', name: 'Boîte à souvenirs', zone: 'bibliotheque', slot: 'tapis', how: 'Ta première capsule temporelle', emoji: '🎁' },
@@ -96,7 +96,6 @@ export const BADGES: BadgeDef[] = [
   { id: 'rdv-50', name: 'Ancrée', description: 'Honorer 50 rendez-vous sportifs.', secret: false, emoji: '🌳' },
   { id: 'semaine-complete', name: 'Semaine complète', description: 'Honorer tous les rendez-vous prévus d\'une semaine.', secret: false, emoji: '🗓️' },
   { id: 'hydratation-7', name: 'Bien hydratée', description: 'Atteindre ton objectif d\'eau 7 jours.', secret: false, emoji: '💧' },
-  { id: 'curiosite-culinaire', name: 'La curiosité culinaire', description: 'Cuisiner 5 recettes différentes.', secret: false, emoji: '🍲' },
   { id: 'journal-14', name: 'Carnet fidèle', description: 'Noter tes repas 14 jours.', secret: false, emoji: '📒' },
   { id: 'ecoute-de-soi', name: 'À l\'écoute de soi', description: 'Faire 10 check-ins d\'énergie.', secret: false, emoji: '🫶' },
   { id: 'capsule-1', name: 'Gardienne du temps', description: 'Créer ta première capsule temporelle.', secret: false, emoji: '⏳' },

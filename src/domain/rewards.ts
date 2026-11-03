@@ -6,7 +6,7 @@ import type { Op } from '../data/store'
 import type { GrantKind, RewardGrant, Snapshot, UserMission } from '../data/types'
 import { addDays, isoWeekday, weekStart, type Day, toDay } from '../lib/dates'
 import { dayRitual, sportCommitment } from './ritual'
-import { activeWeeks, reprises, waterReached, entryMl, foodDays, recipeLogs } from './discipline'
+import { activeWeeks, reprises, waterReached, entryMl, foodDays } from './discipline'
 import { LEVEL_ITEMS, MYSTERY_ITEMS, zoneOrder } from './catalog'
 import { missionDef, missionOps } from './missions'
 import { expectedPoints } from './shop'
@@ -39,7 +39,6 @@ export interface RewardStats {
   totalMl: number
   earlyWaterDays: number
   mealDays: Day[]
-  distinctRecipes: number
   checkins: Day[]
   capsules: number
   capsulesOpened: number
@@ -94,7 +93,6 @@ export function computeStats(s: Snapshot, today: Day): RewardStats {
   const waterGoalDays = waterDays.filter(d => waterReached(s, d))
   const earlyWaterDays = new Set(s.water_logs.filter(w => new Date(w.at).getHours() < 9).map(w => w.day)).size
   const mealDays = [...foodDays(s)].sort()
-  const distinctRecipes = new Set(recipeLogs(s).map(r => r.recipe_id)).size
 
   const completed = s.workouts.filter(w => w.completed)
   const activityKinds = new Set(completed.map(w => w.activity))
@@ -102,7 +100,7 @@ export function computeStats(s: Snapshot, today: Day): RewardStats {
   return {
     firstDay, honoredDays, smallStepDays, realRests,
     waterGoalDays, totalMl: s.water_logs.reduce((n, w) => n + entryMl(w), 0), earlyWaterDays,
-    mealDays, distinctRecipes,
+    mealDays,
     checkins: s.daily_checkins.filter(c => c.energy).map(c => c.day),
     capsules: s.progress_capsules.length,
     capsulesOpened: s.progress_capsules.filter(c => c.opened_at).length,
@@ -172,7 +170,7 @@ export function expectedGrants(s: Snapshot, today: Day, missions: UserMission[] 
   add('item', 'fontaine', 'Objectif d\'eau 21 jours', st.waterGoalDays.length >= 21)
   add('item', 'panier-fruits', 'Repas notés 3 jours', st.mealDays.length >= 3)
   add('item', 'livre-recettes', 'Repas notés 14 jours', st.mealDays.length >= 14)
-  add('item', 'epices', '5 recettes différentes', st.distinctRecipes >= 5)
+  add('item', 'epices', 'Repas notés 30 jours', st.mealDays.length >= 30)
   add('item', 'carnet', 'Premier check-in', st.checkins.length >= 1)
   add('item', 'tasse', '10 check-ins', st.checkins.length >= 10)
   add('item', 'boite-souvenirs', 'Première capsule', st.capsules >= 1)
@@ -213,7 +211,6 @@ export function expectedGrants(s: Snapshot, today: Day, missions: UserMission[] 
   add('badge', 'rdv-50', '50 rendez-vous honorés', st.honoredDays.length >= 50)
   add('badge', 'semaine-complete', 'Une semaine complète', st.completeWeeks >= 1)
   add('badge', 'hydratation-7', 'Objectif d\'eau 7 jours', st.waterGoalDays.length >= 7)
-  add('badge', 'curiosite-culinaire', '5 recettes différentes', st.distinctRecipes >= 5)
   add('badge', 'journal-14', 'Repas notés 14 jours', st.mealDays.length >= 14)
   add('badge', 'ecoute-de-soi', '10 check-ins', st.checkins.length >= 10)
   add('badge', 'capsule-1', 'Première capsule', st.capsules >= 1)

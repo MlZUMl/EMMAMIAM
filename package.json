@@ -10,7 +10,6 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.sw.json",
-    "recettes": "vite-node scripts/recettes.ts",
     "ciqual": "python3 -I scripts/ciqual.py"
   },
   "dependencies": {

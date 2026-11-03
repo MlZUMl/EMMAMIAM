@@ -11,7 +11,6 @@ import {
   ACTIVITY, MEALS, PACE, calorieGoal, currentWeight, dayTotals, defaultMealSlot, fmtKcal, macroTargets, toMeal, multiply,
   remainingText, scale,
 } from '../domain/nutrition'
-import { recipeById, type Recipe } from '../domain/recipes'
 import { toDay, addDays, formatDayLong, type Day } from '../lib/dates'
 import { uid } from '../lib/ids'
 import { porkInText } from '../domain/pork'
@@ -285,40 +284,6 @@ export function CustomFoodSheet({ initial, barcode, onClose, onSaved, onDelete }
   )
 }
 const s = (x: number | undefined | null) => (x === undefined || x === null ? '' : String(x))
-
-// ------------------------------------------------------------------ recette → journal
-export function recipeMealDefault(r: Recipe): MealSlot {
-  return r.moment === 'matin' ? 'petit-dejeuner' : r.moment === 'gouter' ? 'collation' : (() => { const m = defaultMealSlot(); return m === 'petit-dejeuner' || m === 'collation' ? 'dejeuner' : m })()
-}
-
-/** Ajoute une recette au journal (idempotent : même jour + même repas = même ligne). */
-export function RecipeLogSheet({ recipeId, day: day0, meal: meal0, portions: p0, onClose }: { recipeId: string; day?: Day; meal?: MealSlot; portions?: number; onClose: () => void }) {
-  const { snap, actions, toast, today } = useApp()
-  const r = recipeById(recipeId, snap.user_recipes)
-  const [day, setDay] = useState<Day>(day0 ?? today)
-  const [meal, setMeal] = useState<MealSlot>(meal0 ?? (r ? recipeMealDefault(r) : 'dejeuner'))
-  const [portions, setPortions] = useState(p0 ?? 1)
-  if (!r) return null
-  const existing = snap.food_entries.find(f => f.id === `recette:${day}:${meal}:${r.id}`)
-  const n = r.nutrition ? multiply(r.nutrition, portions) : null
-  const save = async () => {
-    const res = await actions.logRecipe(r.id, day, meal, portions)
-    toast('🍽️', res?.existed ? 'Déjà dans ton journal : portions mises à jour' : `Ajoutée ${toMeal(meal)}`)
-    onClose()
-  }
-  return (
-    <Sheet title="Ajouter au journal" onClose={onClose}>
-      <strong>{r.title}</strong>
-      <Chips label="Jour" value={day} onChange={v => v && setDay(v)} options={[{ id: today, label: 'Aujourd\'hui' }, { id: addDays(today, -1), label: 'Hier' }, ...(day !== today && day !== addDays(today, -1) ? [{ id: day, label: formatDayLong(day) }] : [])]} />
-      <MealChips value={meal} onChange={setMeal} />
-      <div className="row between"><strong>Portions mangées</strong><Stepper label="Portions" value={portions} min={0.5} max={6} step={0.5} onChange={setPortions} format={v => String(v).replace('.', ',')} /></div>
-      {n ? <NutriGrid n={n} /> : <p className="muted small">Pas de valeurs nutritionnelles pour cette recette : elle sera notée sans calories. Tu peux les ajouter en modifiant ta recette.</p>}
-      {existing && <div className="ok-note">Déjà notée pour ce repas : enregistrer mettra simplement à jour les portions.</div>}
-      <button className="btn primary block" onClick={save}>{existing ? 'Mettre à jour' : 'Ajouter'}{n ? ` · ${fmtKcal(n.kcal)}` : ''}</button>
-      {existing && <button className="btn danger" onClick={async () => { await actions.deleteFoodEntry(existing.id); toast('🗑️', 'Retirée du journal'); onClose() }}>Retirer du journal</button>}
-    </Sheet>
-  )
-}
 
 // ------------------------------------------------------------------ objectif calorique
 export function GoalSheet({ onClose }: { onClose: () => void }) {

@@ -84,7 +84,7 @@ export function CheckinCard({ compact = false }: { compact?: boolean }) {
             options={[5, 6, 7, 8, 9].map(h => ({ id: h, label: h === 5 ? '5 h ou moins' : h === 9 ? '9 h ou plus' : `${h} h` }))} />
           <strong className="small">De quoi as-tu le plus besoin ?</strong>
           <Chips label="Besoin du jour" soft value={checkin?.need ?? null} onChange={(v: Need | null) => actions.saveCheckin(today, { need: v })}
-            options={Object.entries(NEED_LABELS).map(([id, label]) => ({ id: id as Need, label }))} />
+            options={Object.entries(NEED_LABELS).filter(([id]) => id !== 'cuisine').map(([id, label]) => ({ id: id as Need, label }))} />
         </>
       )}
       {open && <button className="btn secondary sm" onClick={() => setOpen(false)}>C'est noté</button>}

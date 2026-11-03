@@ -4,7 +4,7 @@ import type { Snapshot, UserMission } from '../data/types'
 import { addDays, weekStart, type Day } from '../lib/dates'
 import { hash } from '../lib/ids'
 import { dayRitual, isRendezvousDay, sportCommitment, restEvent } from './ritual'
-import { resumeState, waterReached, waterMl, hasFoodOn, recipeLogs, fruitOrVegOn } from './discipline'
+import { resumeState, waterReached, waterMl, hasFoodOn, fruitOrVegOn } from './discipline'
 
 export type MissionCategory = 'sport' | 'eau' | 'alimentation' | 'organisation' | 'bien-etre' | 'reprise'
 
@@ -28,8 +28,6 @@ const hourOf = (iso: string) => new Date(iso).getHours()
 const workoutsToday = (s: Snapshot, day: Day) => s.workouts.filter(w => w.day === day && w.completed)
 
 export const MISSIONS: MissionDef[] = [
-  { key: 'nouvelle-recette', name: 'Découverte en cuisine', goal: 'Cuisiner et noter une recette que tu n\'as encore jamais faite.', category: 'alimentation', difficulty: 2, xp: 25,
-    success: (s, d) => { const logs = recipeLogs(s); return logs.some(m => m.day === d && !logs.some(o => o.recipe_id === m.recipe_id && o.day < d)) } },
   { key: 'eau-reveil', name: 'Le verre du réveil', goal: 'Boire un verre d\'eau avant 10 h et le noter.', category: 'eau', difficulty: 1, xp: 10,
     eligible: ({ hour }) => hour < 10,
     success: (s, d) => s.water_logs.some(w => w.day === d && hourOf(w.at) < 10) },
@@ -51,14 +49,6 @@ export const MISSIONS: MissionDef[] = [
   { key: 'rdv-honore', name: 'Parole tenue', goal: 'Honorer ton rendez-vous sportif du jour (version minimale comprise).', category: 'sport', difficulty: 2, xp: 20, movement: true,
     eligible: ({ s, day }) => isRendezvousDay(sportCommitment(s), day),
     success: (s, d) => dayRitual(s, d, d).status === 'honore' },
-  { key: 'recette-menu', name: 'Au menu ce soir', goal: 'Cuisiner une recette prévue dans ton menu de la semaine.', category: 'alimentation', difficulty: 2, xp: 20,
-    eligible: ({ s, day }) => s.meal_plans.some(p => p.week_start === weekStart(day) && p.slots.length > 0),
-    success: (s, d) => {
-      const plan = s.meal_plans.find(p => p.week_start === weekStart(d))
-      return Boolean(plan && recipeLogs(s).some(m => m.day === d && plan.slots.some(sl => sl.recipe_id === m.recipe_id)))
-    } },
-  { key: 'planifier-menu', name: 'Semaine sereine', goal: 'Planifier au moins 3 repas dans ton menu de la semaine.', category: 'organisation', difficulty: 2, xp: 20,
-    success: (s, d) => (s.meal_plans.find(p => p.week_start === weekStart(d))?.slots.length ?? 0) >= 3 },
   { key: 'etirements-soir', name: 'Douceur du soir', goal: 'Faire une séance guidée de mobilité après 19 h.', category: 'bien-etre', difficulty: 1, xp: 15, movement: true,
     success: (s, d) => workoutsToday(s, d).some(w => w.kind === 'guidee' && w.activity === 'mobilite' && hourOf(w.started_at) >= 19) },
   { key: 'check-in', name: 'Météo intérieure', goal: 'Faire ton check-in d\'énergie du jour.', category: 'bien-etre', difficulty: 1, xp: 5,

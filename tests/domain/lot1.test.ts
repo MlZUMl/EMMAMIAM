@@ -3,8 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { baseSnap } from '../helpers'
-import { porkInText, porkVerdict, recipeHasPork } from '../../src/domain/pork'
-import { RECIPES, parseCatalog, loadRemoteCatalog, recipeById, helloFreshUrl } from '../../src/domain/recipes'
+import { porkInText, porkVerdict } from '../../src/domain/pork'
 import { bmrMifflin, calorieGoal, macroTargets, mealTarget, MEALS, remainingText, scale, sumEntries } from '../../src/domain/nutrition'
 import { ciqualRowToItem, guessPortions, offToItem, searchFoods } from '../../src/domain/foods'
 import { formatLitres, waterMl, waterGoalMl, waterReached, habitState, hasFoodOn, fruitOrVegOn } from '../../src/domain/discipline'
@@ -14,7 +13,6 @@ import { createActions } from '../../src/app/actions'
 import { defaultCommitments } from '../../src/domain/defaults'
 import type { FoodEntry, Snapshot } from '../../src/data/types'
 
-const catalogFile = JSON.parse(readFileSync(join(__dirname, '../../public/data/recettes.json'), 'utf8'))
 const ciqual = JSON.parse(readFileSync(join(__dirname, '../../public/data/ciqual.json'), 'utf8'))
 
 describe('contrôle sans porc (permanent)', () => {
@@ -32,58 +30,6 @@ describe('contrôle sans porc (permanent)', () => {
     expect(porkVerdict({ name: 'Bonbons', ingredients: 'sucre, sirop de glucose, gélatine' })).toBe('porc')
     expect(porkVerdict({ name: 'Biscuits', ingredients: '' })).toBe('inconnu')
     expect(porkVerdict({ name: 'Yaourt nature', ingredients: 'lait entier, ferments lactiques' })).toBe('ok')
-  })
-})
-
-describe('catalogue de recettes', () => {
-  it('entre 40 et 60 recettes, identifiants et photos uniques, aucune trace de porc', () => {
-    expect(RECIPES.length).toBeGreaterThanOrEqual(40)
-    expect(RECIPES.length).toBeLessThanOrEqual(60)
-    expect(new Set(RECIPES.map(r => r.id)).size).toBe(RECIPES.length)
-    expect(new Set(RECIPES.map(r => r.photo?.url)).size).toBe(RECIPES.length)
-    expect(RECIPES.every(r => r.photo && r.photo.url.startsWith('https://images.pexels.com/'))).toBe(true)
-    expect(RECIPES.some(r => recipeHasPork(r))).toBe(false)
-    expect(catalogFile.recettes.every((r: { sans_porc: boolean }) => r.sans_porc)).toBe(true)
-  })
-  it('les 27 anciennes recettes existent toujours (les menus déjà planifiés restent valides)', () => {
-    const old = ['poulet-citron-four', 'bowl-teriyaki', 'salade-grecque-poulet', 'shakshuka', 'saumon-patate-douce', 'curry-pois-chiches', 'tajine-poulet', 'boulettes-boeuf', 'wraps-poulet', 'omelette-champignons', 'soupe-lentilles', 'bowl-thon', 'chili-boeuf', 'pates-poulet-tomates', 'brochettes-yaourt', 'parmentier-patate-douce', 'cabillaud-papillote', 'salade-quinoa', 'frittata', 'kefta-agneau', 'riz-saute', 'poulet-basquaise', 'veloute-butternut', 'bol-petit-dej', 'tartine-avocat-oeuf', 'mousse-chocolat', 'pomme-four']
-    for (const id of old) expect(recipeById(id), id).toBeTruthy()
-  })
-  it('valeurs nutritionnelles, coût et allergènes cohérents', () => {
-    for (const r of RECIPES) {
-      expect(r.nutrition!.kcal, r.id).toBeGreaterThan(100)
-      expect(r.nutrition!.kcal, r.id).toBeLessThan(900)
-      // énergie ≈ 4 P + 4 G + 9 L (+ 2 fibres) à 15 % près
-      const est = 4 * r.nutrition!.protein + 4 * r.nutrition!.carbs + 9 * r.nutrition!.fat + 2 * r.nutrition!.fiber
-      expect(Math.abs(est - r.nutrition!.kcal) / r.nutrition!.kcal, r.id).toBeLessThan(0.15)
-      expect(r.cost!, r.id).toBeGreaterThan(0.2)
-      expect(r.cost!, r.id).toBeLessThan(8)
-    }
-    expect(recipeById('saumon-patate-douce')!.allergens).toContain('poissons')
-    expect(recipeById('pates-crevettes-citron')!.allergens).toEqual(expect.arrayContaining(['gluten', 'crustacés']))
-  })
-  it('une recette avec du porc glissée dans le fichier en ligne est écartée', () => {
-    const doc = structuredClone(catalogFile)
-    doc.recettes.push({ ...doc.recettes[0], id: 'piege', titre: 'Pâtes aux lardons', etapes: ['Fais revenir les lardons.'] })
-    doc.recettes.push({ ...doc.recettes[0], id: 'piege2', titre: 'Salade', ingredients: [{ label: 'Jambon blanc', qty: 1, unit: 'tranche', rayon: 'Boucherie' }] })
-    const list = parseCatalog(doc)
-    expect(list.find(r => r.id === 'piege')).toBeUndefined()
-    expect(list.find(r => r.id === 'piege2')).toBeUndefined()
-    expect(list).toHaveLength(catalogFile.recettes.length)
-  })
-  it('le fichier en ligne remplace la copie embarquée seulement s\'il est valide', async () => {
-    const before = RECIPES.length
-    const ok = await loadRemoteCatalog('./', (async () => new Response('{"recettes": []}')) as typeof fetch)
-    expect(ok).toBe(false)
-    expect(RECIPES.length).toBe(before)
-    const doc = structuredClone(catalogFile)
-    doc.recettes[0].titre = 'Titre corrigé en ligne'
-    expect(await loadRemoteCatalog('./', (async () => new Response(JSON.stringify(doc))) as typeof fetch)).toBe(true)
-    expect(RECIPES[0].title).toBe('Titre corrigé en ligne')
-    expect(await loadRemoteCatalog('./', (async () => { throw new Error('hors ligne') }) as typeof fetch)).toBe(false)
-  })
-  it('lien HelloFresh = simple recherche, sans récupération de contenu', () => {
-    expect(helloFreshUrl('Shakshuka aux œufs')).toBe('https://www.hellofresh.fr/recipes/search?q=Shakshuka%20aux%20%C5%93ufs')
   })
 })
 
@@ -212,19 +158,17 @@ describe('matériel et séances', () => {
 })
 
 describe('actions', () => {
-  it('ajouter une recette au journal est idempotent ; refuse un aliment au porc', async () => {
+  it('noter des calories : ajout rapide, modification sur place ; refuse un aliment au porc', async () => {
     const store = await DataStore.open('lot1-' + Math.random())
     const actions = createActions(store)
     await actions.completeOnboarding({ name: 'A', ritual: { days: [1, 2, 3, 4, 5], time: '17:15', usualMinutes: 20, minMinutes: 10, place: 'Salon' }, species: 'chat', companionName: 'Mochi', waterMl: 2000, equipment: ['tapis', 'corde'] })
-    const r1 = await actions.logRecipe('shakshuka', '2026-10-20', 'diner', 1)
-    const r2 = await actions.logRecipe('shakshuka', '2026-10-20', 'diner', 2)
-    expect(r1?.existed).toBe(false)
-    expect(r2?.existed).toBe(true)
+    const quick = { day: '2026-10-20' as const, meal: 'diner' as const, source: 'rapide' as const, ref: null, name: 'Ajout rapide', brand: null, quantity: 1, unit: 'portion' as const, grams: 0, portion_label: null, per100: null, kcal: 650, protein: 0, carbs: 0, fat: 0, fiber: 0, details: {}, category: null }
+    const id = await actions.saveFoodEntry(quick)
+    await actions.saveFoodEntry({ ...quick, id, kcal: 700 })
     const rows = store.snapshot().food_entries
     expect(rows).toHaveLength(1)
-    expect(rows[0].kcal).toBe(recipeById('shakshuka')!.nutrition!.kcal * 2)
+    expect(rows[0].kcal).toBe(700)
     await expect(actions.saveFoodEntry({ day: '2026-10-20', meal: 'diner', source: 'rapide', ref: null, name: 'Croque au jambon', brand: null, quantity: 1, unit: 'portion', grams: 0, portion_label: null, per100: null, kcal: 400, protein: 0, carbs: 0, fat: 0, fiber: 0, details: {}, category: null })).rejects.toThrow('PORC')
-    await expect(actions.saveUserRecipe({ id: 'p', title: 'Quiche', minutes: 30, servings: 2, ingredients: [{ name: '100 g de lardons', qty: null, unit: '', aisle: '' }], steps: [], tags: [] })).rejects.toThrow('PORC')
     expect(store.snapshot().profiles[0].water_goal_ml).toBe(2000)
     expect(store.snapshot().notification_preferences[0].hydration_times).toHaveLength(5)
     store.close()

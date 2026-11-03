@@ -10,7 +10,6 @@ import { createActions, type Actions } from './actions'
 import { navigate } from '../lib/router'
 import { deriveOps } from '../domain/rewards'
 import { badgeDef, itemDef, ZONES, ACCESSORIES } from '../domain/catalog'
-import { loadRemoteCatalog } from '../domain/recipes'
 
 export interface Toast { id: number; emoji: string; text: string }
 
@@ -87,9 +86,6 @@ export function AppProvider({ store, children }: { store: DataStore; children: R
     })
     return () => { off(); store.setDeriver(null) }
   }, [store, toast])
-
-  // Catalogue de recettes : la version en ligne (modifiable sans reconstruire) remplace la copie embarquée.
-  useEffect(() => { loadRemoteCatalog().then(changed => { if (changed) force(x => x + 1) }) }, [])
 
   // Rappels du cycle : recalés au démarrage et chaque jour (une date prévue passée, un retard…).
   const cycleSig = hasProfileSig(snap)

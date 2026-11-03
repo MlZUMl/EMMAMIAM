@@ -9,8 +9,8 @@ cleanupOutdatedCaches()
 
 self.addEventListener('install', () => { self.skipWaiting() })
 
-// Données (table Ciqual, catalogue de recettes) : réseau d'abord pour voir les mises à jour,
-// copie locale en secours hors ligne. Photos des recettes : copie locale d'abord (60 au plus,
+// Données (table Ciqual des aliments) : réseau d'abord pour voir les mises à jour,
+// copie locale en secours hors ligne. Photos d'aliments : copie locale d'abord (60 au plus,
 // seulement si le serveur d'images l'autorise ; sinon le cache du navigateur s'en charge).
 const DATA_CACHE = 'elan-donnees-v1'
 const PHOTO_CACHE = 'elan-photos-v1'

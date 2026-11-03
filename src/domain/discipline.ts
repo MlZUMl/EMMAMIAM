@@ -47,14 +47,6 @@ export function mealsCountOn(s: Snapshot, day: Day): number {
   return slots.size
 }
 
-/** Recettes cuisinées et notées : { jour, recette, heure }, toutes sources confondues. */
-export function recipeLogs(s: Snapshot): { day: Day; recipe_id: string; at: string }[] {
-  const out: { day: Day; recipe_id: string; at: string }[] = []
-  for (const m of s.meals) if (m.recipe_id) out.push({ day: m.day, recipe_id: m.recipe_id, at: m.at })
-  for (const f of s.food_entries) if (f.source === 'recette' && f.ref) out.push({ day: f.day, recipe_id: f.ref, at: f.at })
-  return out
-}
-
 /** Un fruit ou des légumes notés ce jour-là. */
 export function fruitOrVegOn(s: Snapshot, day: Day): boolean {
   if (s.meals.some(m => m.day === day && (m.markers.includes('fruit') || m.markers.includes('legumes')))) return true

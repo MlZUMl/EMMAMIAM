@@ -4,7 +4,6 @@ import { capsuleAccess, canEdit, canReadContent, compareCapsule, buildCapsuleSna
 import { analyze } from '../../src/domain/analysis'
 import { moodFor, messageFor, SPECIES } from '../../src/domain/companion'
 import { weightTrend, cycleInfo } from '../../src/domain/body'
-import { shoppingList, claudeCartPrompt, RECIPES } from '../../src/domain/recipes'
 import type { ProgressCapsule } from '../../src/data/types'
 import { addDays } from '../../src/lib/dates'
 
@@ -106,7 +105,7 @@ describe('compagnon', () => {
   })
 })
 
-describe('corps, cycle et courses', () => {
+describe('corps et cycle', () => {
   it('tendance de poids lissée', () => {
     const t = weightTrend([{ id: 'a', day: '2026-10-01', kg: 70, note: null, created_at: '', updated_at: '' }, { id: 'b', day: '2026-10-08', kg: 69, note: null, created_at: '', updated_at: '' }])
     expect(t[1].trend).toBe(69.5)
@@ -117,25 +116,5 @@ describe('corps, cycle et courses', () => {
     expect(info.starts).toEqual(['2026-08-01', '2026-08-29', '2026-09-26'])
     expect(info.avgCycle).toBe(28)
     expect(info.nextStart).toBe('2026-10-24')
-  })
-  it('liste de courses : quantités additionnées selon les portions, placard à part', () => {
-    const plan = { id: 'w', week_start: '2026-10-19', checked: [], created_at: '', updated_at: '', slots: [
-      { day: '2026-10-19', moment: 'soir' as const, recipe_id: 'salade-grecque-poulet', portions: 2 },
-      { day: '2026-10-20', moment: 'midi' as const, recipe_id: 'bowl-teriyaki', portions: 1 },
-    ] }
-    const list = shoppingList(plan)
-    // 120 g × 2 portions (salade grecque) + 130 g (bowl teriyaki)
-    expect(list.find(i => i.name === 'Blanc de poulet')?.qty).toBe(370)
-    expect(list.filter(i => i.pantry).every(i => i.aisle.startsWith('Placard'))).toBe(true)
-    const prompt = claudeCartPrompt(list)
-    expect(prompt).toMatch(/aucun produit contenant du porc/)
-    expect(prompt).not.toMatch(/halal/)
-    expect(prompt).toMatch(/ne valide pas la commande/)
-  })
-  it('recettes : aucune mention de porc ni d\'alcool, valeurs nutritionnelles présentes', () => {
-    const text = JSON.stringify(RECIPES.map(r => [r.title, r.ingredients.map(i => i.name), r.steps])).toLowerCase()
-    expect(text).not.toMatch(/porc|lardon|jambon|bacon|chorizo|saucisse|gélatine|vin blanc|vin rouge|bière|rhum/)
-    expect(RECIPES.length).toBeGreaterThanOrEqual(40)
-    expect(RECIPES.every(r => r.nutrition && r.nutrition.kcal > 0)).toBe(true)
   })
 })

@@ -22,7 +22,7 @@ export interface Recommendation {
   options: SessionOption[]
   /** index de l'option mise en avant */
   primary: number
-  extras: { water: boolean; quickRecipe: boolean; minimumHabits: boolean }
+  extras: { water: boolean; minimumHabits: boolean }
   /** limiter les notifications non essentielles aujourd'hui */
   quiet: boolean
   restDay: boolean
@@ -120,7 +120,7 @@ export function recommend({ checkin, sport, prefs, isRendezvousDay, tonePref = '
 
   return {
     tone, headline, message, options: unique, primary: primaryIndex,
-    extras: { water: need === 'eau', quickRecipe: need === 'cuisine', minimumHabits: need === 'reprendre' },
+    extras: { water: need === 'eau', minimumHabits: need === 'reprendre' },
     quiet: Boolean(enabled && prefs?.quiet_when_low && energy !== null && energy <= 1),
     restDay,
   }

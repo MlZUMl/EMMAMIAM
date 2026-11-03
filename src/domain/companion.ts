@@ -4,13 +4,13 @@ import type { CompanionInteraction, Snapshot, Species } from '../data/types'
 import { toDay, minutesOfDay, type Day } from '../lib/dates'
 import { hash } from '../lib/ids'
 import { dayRitual, isRendezvousDay, restEvent, sportCommitment } from './ritual'
-import { resumeState, waterMl, waterGoalMl, entryMl, hasFoodOn, recipeLogs, formatLitres } from './discipline'
+import { resumeState, waterMl, waterGoalMl, entryMl, hasFoodOn, formatLitres } from './discipline'
 import { badgeDef, itemDef } from './catalog'
 
 export type Expression = 'content' | 'curieux' | 'endormi' | 'pensif' | 'fier' | 'enthousiaste' | 'detendu' | 'surpris'
 
 export type Context =
-  | 'retour' | 'seance-faite' | 'mission-reussie' | 'eau-objectif' | 'nouvelle-recette' | 'capsule'
+  | 'retour' | 'seance-faite' | 'mission-reussie' | 'eau-objectif' | 'capsule'
   | 'repos' | 'journee-difficile' | 'reprise' | 'rituel-maintenant' | 'rituel-bientot'
   | 'nuit' | 'bonjour' | 'apres-midi' | 'soir'
 
@@ -49,10 +49,6 @@ const POOLS: Record<Context, { expression: Expression; lines: string[] }> = {
   'eau-objectif': { expression: 'enthousiaste', lines: [
     'Objectif d\'eau atteint ! Une nouvelle plante a soif de compliments.',
     'Hydratée jusqu\'au bout des feuilles. Petite victoire du jour !',
-  ] },
-  'nouvelle-recette': { expression: 'curieux', lines: [
-    'Oh, ça a l\'air intéressant ! Tu me racontes comment c\'était ?',
-    'Une nouvelle recette ! Tu l\'ajouterais à ton menu de la semaine ?',
   ] },
   capsule: { expression: 'pensif', lines: [
     'Une capsule ouverte… Le chemin parcouru se voit mieux avec un peu de recul.',
@@ -117,8 +113,6 @@ export function moodFor(s: Snapshot, now: Date = new Date()): CompanionMood {
   const todayWater = s.water_logs.filter(w => w.day === today).sort((a, b) => a.at.localeCompare(b.at))
   let acc = 0
   for (const w of todayWater) { const before = acc; acc += entryMl(w); if (before < goal && acc >= goal && recent(w.at)) events.push({ at: w.at, ctx: 'eau-objectif', reason: 'Objectif d\'eau atteint' }) }
-  const logs = recipeLogs(s)
-  for (const m of logs) if (m.day === today && recent(m.at) && !logs.some(o => o.recipe_id === m.recipe_id && o.day < today)) events.push({ at: m.at, ctx: 'nouvelle-recette', reason: 'Nouvelle recette' })
   for (const c of s.progress_capsules) if (c.opened_at && recent(c.opened_at)) events.push({ at: c.opened_at, ctx: 'capsule', reason: 'Capsule ouverte' })
   events.sort((a, b) => b.at.localeCompare(a.at))
   if (events[0]) return { context: events[0].ctx, expression: POOLS[events[0].ctx].expression, reason: events[0].reason }

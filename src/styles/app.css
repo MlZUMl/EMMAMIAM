@@ -331,7 +331,7 @@ ol.steps li::before { content: counter(s); flex: none; width: 28px; height: 28px
 .species-grid button.on::after { content: '✓'; position: absolute; top: 6px; right: 8px; width: 20px; height: 20px; border-radius: 50%; background: var(--btn); color: #fff; font-size: .75rem; display: grid; place-items: center; }
 .species-grid svg { width: 72px; height: 72px; }
 
-/* ---------------------------------------------------------------- lot 1 : journal, eau, recettes */
+/* ---------------------------------------------------------------- lot 1 : journal, eau */
 .kicker-nuit { font-size: .74rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--nuit); }
 .water-bar { position: relative; height: 22px; border-radius: 999px; background: var(--eau-clair); overflow: hidden; }
 .water-bar > div { height: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--eau) 65%, #fff), var(--eau)); border-radius: 999px; transition: width .4s ease; }
@@ -370,16 +370,6 @@ ol.steps li::before { content: counter(s); flex: none; width: 28px; height: 28px
 .add-line { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; border-radius: 12px; border: 1.5px dashed var(--poudre-2); background: none; color: var(--vert); font-weight: 800; cursor: pointer; width: 100%; }
 .thumb { width: 52px; height: 52px; border-radius: 14px; object-fit: cover; background: var(--mousse-clair); flex: none; display: grid; place-items: center; font-size: 1.5rem; overflow: hidden; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; }
-.recipe-photo { position: relative; border-radius: var(--r); overflow: hidden; aspect-ratio: 16 / 10; background: var(--mousse-clair); display: grid; place-items: center; font-size: 4rem; }
-.recipe-photo img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
-.recipe-photo .credit { position: absolute; right: 8px; bottom: 8px; background: rgba(10,51,35,.72); color: #fff; font-size: .7rem; font-weight: 700; padding: 3px 8px; border-radius: 999px; text-decoration: none; }
-.recipe-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.recipe-card { border: 1px solid var(--ligne); border-radius: 18px; overflow: hidden; background: #fff; display: flex; flex-direction: column; text-align: left; padding: 0; cursor: pointer; color: var(--texte); box-shadow: var(--ombre); }
-.recipe-card .ph { aspect-ratio: 4 / 3; background: var(--mousse-clair); display: grid; place-items: center; font-size: 2.4rem; position: relative; overflow: hidden; }
-.recipe-card .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.recipe-card .body { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 4px; }
-.recipe-card .t { font-weight: 800; font-size: .88rem; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.recipe-card .m { font-size: .74rem; color: var(--texte-doux); font-weight: 700; }
 .nutri-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; text-align: center; }
 .nutri-grid div { background: var(--surface); border-radius: 12px; padding: 8px 2px; }
 .nutri-grid b { display: block; font-size: .95rem; color: var(--vert); }
@@ -451,8 +441,6 @@ ol.steps li::before { content: counter(s); flex: none; width: 28px; height: 28px
 .meal-tools .link-btn { display: inline-flex; align-items: center; gap: 4px; }
 .meal-card .meal-head + .meal-tools { border-top: 0; }
 .card.prune .btn.ghost { color: var(--vert); border: 1.5px solid var(--or); background: transparent; }
-.menu-row { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; }
-.menu-row .menu-recipe { flex: 1; min-width: 0; justify-content: flex-start; white-space: normal; text-align: left; line-height: 1.25; padding-top: 8px; padding-bottom: 8px; height: auto; }
 
 /* séance guidée : illustration + minuteur */
 .player-visual { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; flex-wrap: wrap; }

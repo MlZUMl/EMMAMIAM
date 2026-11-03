@@ -6,7 +6,7 @@ Aucun mot de passe ni clé secrète dans ce fichier : les accès se font par les
 ## 1. Ce que c'est
 « Élan » : appli web installable (PWA, Android/Chrome) sur les habitudes, la discipline et la perte de poids,
 pour **une seule utilisatrice** (la compagne d'Omar). Sport (Ring Fit, danse, vélo, marche), eau, repas (journal
-type Foodvisor, recettes « sans porc »), cycle, poids, badges, boutique de points, univers/chambre, compagnon et avatar.
+calories, sans porc), cycle, poids, badges, boutique de points, univers/chambre, compagnon et avatar.
 
 ## 2. Liens
 | Quoi | Où |
@@ -39,7 +39,7 @@ vers Supabase. Notifications : Web Push, règles côté serveur (`elan_private.d
 Tests : Vitest (domaine + base PGlite) et Playwright (écran 360 × 740, `page.clock`). Variable `SHOTS_DIR` pour écrire des captures.
 
 Commandes : `npm install`, `npm run dev`, `npm run build`, `npm test`, `npm run test:e2e` (après build).
-Les données d'aliments et de recettes sont dans `public/data` ; scripts de génération dans `scripts/`.
+Les données d'aliments (Ciqual) sont dans `public/data` ; scripts de génération dans `scripts/`.
 Le README du dépôt détaille l'organisation (dossiers `src/data`, `src/domain`, `src/screens`, `src/art`, `supabase`).
 
 ## 5. Règles à ne jamais casser
@@ -61,7 +61,7 @@ Le README du dépôt détaille l'organisation (dossiers `src/data`, `src/domain`
 - **24 oct. : Omar inverse sa règle « pas d'illustrations ComfyUI »** et veut avatar, compagnons et tenues en **images ComfyUI aquarelle**
   (enfants en capuche d'animal, style de sa référence : tons rosés doux, pastel, aquarelle). Il utilise son propre ComfyUI (Windows 11, GPU AMD, déjà lancé) via Claude pour bureau relié à la session.
 - Veut aussi un **compteur de pas lié au téléphone** : non faisable en PWA (Health Connect réservé aux vraies applis Android). Proposé : saisie quotidienne des pas, ou emballage Android natif (gros chantier). Pas de décision.
-- Idée en attente : import de recette depuis une capture d'écran (1. coller le texte copié → analyse ; 2. lecture par IA via fonction Supabase, coût à l'image ; 3. OCR sur le téléphone). Recommandé : 1 d'abord. Pas de décision.
+- **3 nov. 2026 : Omar fait retirer tout le système de recettes** (recettes, menu de la semaine, liste de courses) : il veut seulement saisir le nombre de calories mangées. Fait sur `elan-source` (non publié, à valider par Omar). L'import de recette depuis une capture n'a donc plus d'objet. Tables `user_recipes`/`meal_plans` conservées en base, inutilisées.
 
 ## 7. Tâche à reprendre : images ComfyUI
 Mécanisme déjà présent : `public/config.js` peut contenir `art: { "avatar": "art/avatar.png", "compagnon-chat": "art/chat.png", … }`.

@@ -1,7 +1,7 @@
 // Contrôle « sans porc » — permanent, impossible à désactiver.
-// Utilisé partout où un aliment ou une recette entre dans l'appli : catalogue de recettes
+// Utilisé partout où un aliment entre dans l'appli : recherche d'aliments
 // (à la construction ET au chargement), recherche Open Food Facts, code-barres, aliments
-// et recettes personnels. Dans le doute, on bloque ou on demande une vérification explicite.
+// et personnels. Dans le doute, on bloque ou on demande une vérification explicite.
 
 export type PorkVerdict = 'ok' | 'porc' | 'inconnu'
 
@@ -47,11 +47,4 @@ export function porkVerdict(p: PorkCheckInput): PorkVerdict {
   if ((p.categories ?? []).some(c => PORK_TAGS.test(c))) return 'porc'
   if (!p.ingredients || p.ingredients.trim().length < 3) return 'inconnu'
   return 'ok'
-}
-
-/** Une recette (catalogue ou perso) : titre, ingrédients et étapes. */
-export function recipeHasPork(r: { title: string; ingredients: { name?: string; label?: string }[]; steps?: string[] }): boolean {
-  if (porkInText(r.title)) return true
-  if (r.ingredients.some(i => porkInText(i.name ?? i.label ?? ''))) return true
-  return (r.steps ?? []).some(s => porkInText(s))
 }
