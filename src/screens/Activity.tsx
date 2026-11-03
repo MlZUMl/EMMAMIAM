@@ -9,6 +9,8 @@ import { ExternalActivitySheet } from './widgets'
 import { ProgramCard } from './Programs'
 import { IconPlay, IconTrash, IconUser } from '../ui/icons'
 import type { Workout } from '../data/types'
+import { currentWeight } from '../domain/nutrition'
+import { workoutKcal } from '../domain/burn'
 
 export function Activity() {
   const { snap, today, actions } = useApp()
@@ -19,6 +21,7 @@ export function Activity() {
   const [del, setDel] = useState<Workout | null>(null)
   const week = rendezvousStats(snap, addDays(today, -6), today, today)
   const history = [...snap.workouts].sort((a, b) => b.started_at.localeCompare(a.started_at)).slice(0, 30)
+  const kg = currentWeight(snap)
   const label = (w: Workout) => w.kind === 'externe' ? (EXTERNAL_ACTIVITIES.find(a => a.id === w.activity)?.label ?? 'Activité') : (w.program ?? FOCUS_LABELS[w.activity as Focus] ?? 'Séance')
   const emoji = (w: Workout) => w.kind === 'externe' ? (EXTERNAL_ACTIVITIES.find(a => a.id === w.activity)?.emoji ?? '✨') : ({ renfo: '💪', mobilite: '🧘‍♀️', cardio: '💃', mixte: '🌸' } as Record<string, string>)[w.activity] ?? '🌸'
 
@@ -54,6 +57,7 @@ export function Activity() {
         </section>
 
         <div className="section-title"><h2>Historique</h2></div>
+        {kg && <p className="muted small" style={{ marginTop: -4 }}>Les kcal sont une estimation (type d'activité, durée, ton poids). Elles restent à part : jamais déduites de ton objectif.</p>}
         <section className="card">
           {!history.length && <p className="empty">Ta première séance apparaîtra ici.</p>}
           <div className="list">
@@ -62,7 +66,7 @@ export function Activity() {
                 <span className="emoji-bubble" aria-hidden="true">{emoji(w)}</span>
                 <div className="grow">
                   <div className="title">{label(w)}</div>
-                  <div className="muted small">{w.day === today ? 'Aujourd\'hui' : formatDayLong(w.day)} · {w.actual_minutes} min{w.planned_minutes && w.actual_minutes < w.planned_minutes ? ` sur ${w.planned_minutes}` : ''}{w.note ? ` · ${w.note}` : ''}</div>
+                  <div className="muted small">{w.day === today ? 'Aujourd\'hui' : formatDayLong(w.day)} · {w.actual_minutes} min{w.planned_minutes && w.actual_minutes < w.planned_minutes ? ` sur ${w.planned_minutes}` : ''}{w.note ? ` · ${w.note}` : ''}{(() => { const k = w.completed ? workoutKcal(w, kg) : null; return k ? <span title="Estimation indicative"> · ≈ {k} kcal</span> : null })()}</div>
                 </div>
                 <button className="icon-btn" aria-label="Supprimer cette séance" onClick={() => setDel(w)}><IconTrash /></button>
               </div>

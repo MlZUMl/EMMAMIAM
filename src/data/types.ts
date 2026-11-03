@@ -38,6 +38,10 @@ export interface Profile extends Row {
     equipment?: Equipment[]
     /** réglages du calcul de l'objectif calorique */
     nutrition?: NutritionSettings
+    /** pas du jour saisis à la main : { jour: nombre de pas } */
+    steps?: Record<string, number>
+    /** objectif de pas par jour (8 000 par défaut) */
+    step_goal?: number
     /** migrations locales déjà appliquées */
     upgrades?: string[]
   }

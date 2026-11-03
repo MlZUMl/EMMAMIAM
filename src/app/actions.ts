@@ -340,6 +340,17 @@ export function createActions(store: DataStore) {
 
     // ---------------------------------------------------------------- réglages
     async updateProfile(patch: Partial<Profile>) { return store.commit([put('profiles', { ...profile(), ...patch })]) },
+    /** Pas du jour (saisie manuelle) ; 0 ou vide efface la valeur du jour. Stockés dans les réglages du profil. */
+    async setSteps(day: Day, steps: number | null) {
+      const p = profile()
+      const next = { ...(p.settings.steps ?? {}) }
+      if (steps && steps > 0) next[day] = Math.round(steps); else delete next[day]
+      return store.commit([put('profiles', { ...p, settings: { ...p.settings, steps: next } })], { derive: false })
+    },
+    async setStepGoal(goal: number) {
+      const p = profile()
+      return store.commit([put('profiles', { ...p, settings: { ...p.settings, step_goal: Math.max(1000, Math.min(30000, Math.round(goal))) } })], { derive: false })
+    },
     async updateEnergyPrefs(patch: Partial<EnergyPreferences>) { return store.commit([put('energy_preferences', { ...s().energy_preferences[0], ...patch })]) },
     async updateNotifPrefs(patch: Partial<NotificationPreferences>) { return store.commit([put('notification_preferences', { ...s().notification_preferences[0], ...patch })], { derive: false }) },
 

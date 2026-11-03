@@ -58,6 +58,17 @@ npm run ciqual       # régénère la table des aliments depuis scripts/data/ciq
 - **Rappels de repas** (Profil > Rappels, désactivables) : à l'heure choisie (13 h 30 et 20 h 30 par défaut),
   seulement si le déjeuner ou le dîner n'est pas encore noté ce jour-là.
 
+### Pas, bilan calories, calories de séance (3 nov. 2026)
+
+- **Pas** : saisie manuelle du total de la journée (carte « Pas » sur l'accueil, courbe dans Progrès > Courbes).
+  Stockés dans `profiles.settings.steps` (`{ jour: nombre }`) et `settings.step_goal` (8 000 par défaut) : aucune table ni
+  migration. Lire les pas du téléphone n'est pas possible dans une PWA. Code : `src/domain/steps.ts`.
+- **Bilan calories de la semaine** (Progrès > Courbes) : barres des 7 derniers jours, moyenne sur les jours notés
+  (la journée en cours est laissée de côté tant qu'elle n'est pas finie), jours à ±10 % de l'objectif, comparaison avec
+  les 7 jours d'avant, variation de la tendance du poids de la semaine. Un jour non noté ne compte pas. `calorieWeek` dans `src/domain/series.ts`.
+- **Calories de séance** : estimation MET × poids × durée (`src/domain/burn.ts`), affichée dans l'historique, le résumé de séance et la carte Activité.
+  **Jamais déduite de l'objectif calorique** (test dédié).
+
 ## Contrôle « sans porc » (permanent)
 
 `src/domain/pork.ts` est appliqué partout : résultats Open Food Facts (retirés), code-barres (refusé),

@@ -10,6 +10,8 @@ import { CompanionArt } from '../art/Companion'
 import { messageFor } from '../domain/companion'
 import type { RewardGrant, WorkoutSource } from '../data/types'
 import { ACCESSORIES, ZONES, badgeDef, itemDef } from '../domain/catalog'
+import { currentWeight } from '../domain/nutrition'
+import { workoutKcal } from '../domain/burn'
 
 type Step = { kind: 'work' | 'rest'; block: number; seconds: number }
 
@@ -172,6 +174,7 @@ export function SessionDone({ query }: { query: URLSearchParams }) {
   const notable = grants.filter(g => g.kind !== 'xp' && g.kind !== 'points')
   const points = grants.reduce((n, g) => n + (g.kind === 'points' ? g.points ?? 0 : 0), 0)
   const minutes = w.actual_minutes
+  const burn = workoutKcal(w, currentWeight(snap))
   const planned = w.planned_minutes ?? minutes
   const msg = comp ? messageFor(comp.species, { context: 'seance-faite', expression: 'fier', reason: '' }, snap.companion_interactions, today) : null
   return (
@@ -188,6 +191,7 @@ export function SessionDone({ query }: { query: URLSearchParams }) {
           <h2>Récapitulatif</h2>
           <div className="list">
             <div className="list-item"><span className="emoji-bubble">⏱️</span><div className="grow"><div className="title">{minutes} minutes</div><div className="muted small">{w.program ?? 'Séance'} · enregistrée dans ton historique</div></div></div>
+            {burn ? <div className="list-item" data-testid="seance-kcal"><span className="emoji-bubble">🔥</span><div className="grow"><div className="title">≈ {burn} kcal dépensées</div><div className="muted small">Estimation indicative · à part, jamais déduite de ton objectif</div></div></div> : null}
             {xp > 0 && <div className="list-item"><span className="emoji-bubble">✨</span><div className="grow"><div className="title">+{xp} points d'expérience</div><div className="muted small">Ton univers grandit</div></div></div>}
             {points > 0 && <button className="list-item" style={{ border: 0, background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate('/univers?onglet=boutique')}><span className="emoji-bubble">🪙</span><div className="grow"><div className="title">+{points} points pour la boutique</div><div className="muted small">De quoi habiller ton compagnon · voir la boutique</div></div></button>}
             {notable.map(g => {

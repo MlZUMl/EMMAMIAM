@@ -63,6 +63,8 @@ Le README du dépôt détaille l'organisation (dossiers `src/data`, `src/domain`
 - Veut aussi un **compteur de pas lié au téléphone** : non faisable en PWA (Health Connect réservé aux vraies applis Android). Proposé : saisie quotidienne des pas, ou emballage Android natif (gros chantier). Pas de décision.
 - **3 nov. 2026 : Omar fait retirer tout le système de recettes** (recettes, menu de la semaine, liste de courses) : il veut seulement saisir le nombre de calories mangées. Fait sur `elan-source` (non publié, à valider par Omar). L'import de recette depuis une capture n'a donc plus d'objet. Tables `user_recipes`/`meal_plans` conservées en base, inutilisées.
 
+- **3 nov. 2026 (soir) : Omar choisit** les propositions 1 (pas saisis à la main + courbe), 2 (bilan calories de la semaine relié au poids) et 4 (calories de séance estimées, à part). Faits sur `elan-source`, non publiés. Pas de migration : pas dans `profiles.settings`.
+
 ## 7. Tâche à reprendre : images ComfyUI
 Mécanisme déjà présent : `public/config.js` peut contenir `art: { "avatar": "art/avatar.png", "compagnon-chat": "art/chat.png", … }`.
 `src/art/Avatar.tsx` et `src/art/Companion.tsx` remplacent alors le dessin vectoriel par l'image. Les tenues/coiffures de la boutique

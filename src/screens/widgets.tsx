@@ -16,6 +16,7 @@ import { EXTERNAL_ACTIVITIES, EQUIPMENT } from '../domain/exercises'
 import type { Need, WaterLog, Equipment } from '../data/types'
 import { IconDrop, IconSparkle } from '../ui/icons'
 import { PointsPill } from './Shop'
+import { MAX_STEPS, parseSteps, stepGoal, stepsOn, stepsToKm } from '../domain/steps'
 
 // ------------------------------------------------------------------ compagnon
 export function CompanionCard() {
@@ -215,6 +216,63 @@ function WaterAmountSheet({ title, initial, onSave, onClose, onDelete }: { title
       <div className="grid2">
         {onDelete ? <button className="btn danger" onClick={onDelete}>Supprimer</button> : <button className="btn ghost" onClick={onClose}>Annuler</button>}
         <button className="btn primary" disabled={!ok} onClick={() => onSave(Math.round(n * 10))}>Enregistrer</button>
+      </div>
+    </Sheet>
+  )
+}
+
+// ------------------------------------------------------------------ pas du jour (saisie à la main)
+const nf = (n: number) => n.toLocaleString('fr-FR')
+
+export function StepsWidget({ day }: { day: Day }) {
+  const { snap } = useApp()
+  const [open, setOpen] = useState(false)
+  const steps = stepsOn(snap, day)
+  const goal = stepGoal(snap)
+  return (
+    <section className="card" aria-label="Pas du jour">
+      <div className="card-head">
+        <span className="emoji-bubble" aria-hidden="true">👟</span>
+        <div><div className="kicker">Pas</div><strong data-testid="pas-total">{steps > 0 ? `${nf(steps)} sur ${nf(goal)}` : `Objectif ${nf(goal)}`}</strong></div>
+        <div className="water-sum"><strong>{steps > 0 ? Math.round(Math.min(1, steps / goal) * 100) + ' %' : '—'}</strong>
+          <span className="small muted">{steps >= goal ? 'objectif atteint' : steps > 0 ? `encore ${nf(goal - steps)}` : 'pas encore noté'}</span></div>
+      </div>
+      <div className="progress" role="progressbar" aria-label="Pas du jour" aria-valuemin={0} aria-valuemax={goal} aria-valuenow={steps}><div style={{ width: Math.min(100, (steps / goal) * 100) + '%' }} /></div>
+      <button className="btn secondary" onClick={() => setOpen(true)}>{steps > 0 ? 'Modifier mes pas' : 'Noter mes pas'}</button>
+      {open && <StepsSheet day={day} onClose={() => setOpen(false)} />}
+    </section>
+  )
+}
+
+export function StepsSheet({ day: day0, onClose }: { day: Day; onClose: () => void }) {
+  const { snap, today, actions, toast } = useApp()
+  const [day, setDay] = useState<Day>(day0)
+  const [text, setText] = useState(() => { const n = stepsOn(snap, day0); return n ? String(n) : '' })
+  const [goalText, setGoalText] = useState(String(stepGoal(snap)))
+  const n = parseSteps(text)
+  const g = parseSteps(goalText)
+  const pick = (d: Day) => { setDay(d); const v = stepsOn(snap, d); setText(v ? String(v) : '') }
+  const existing = stepsOn(snap, day)
+  const save = async () => {
+    if (g && g !== stepGoal(snap)) await actions.setStepGoal(g)
+    if (n) { await actions.setSteps(day, n); toast('👟', `${nf(n)} pas notés`) }
+    onClose()
+  }
+  return (
+    <Sheet title="Mes pas" onClose={onClose}>
+      <p className="muted small">Ouvre l'appli de ton téléphone (Google Fit, Santé Samsung…) et recopie le total de la journée : une appli installée ne peut pas le lire toute seule.</p>
+      <Chips label="Jour" value={day} onChange={v => v && pick(v)} options={[{ id: today, label: 'Aujourd\'hui' }, { id: addDays(today, -1), label: 'Hier' }, { id: addDays(today, -2), label: 'Avant-hier' }]} />
+      <label className="field">Nombre de pas
+        <input className="input big-input" inputMode="numeric" value={text} onChange={e => setText(e.target.value)} aria-label="Nombre de pas" placeholder="ex. 6 240" />
+      </label>
+      {n !== null && <p className="muted small">≈ {String(stepsToKm(n)).replace('.', ',')} km</p>}
+      {text.trim() !== '' && n === null && <p className="warn" role="alert">Entre un nombre entre 1 et {nf(MAX_STEPS)}.</p>}
+      <label className="field">Objectif par jour <span className="hint">8 000 est un bon repère ; monte-le doucement si tu veux</span>
+        <input className="input" inputMode="numeric" value={goalText} onChange={e => setGoalText(e.target.value)} aria-label="Objectif de pas par jour" />
+      </label>
+      <div className="grid2">
+        {existing > 0 ? <button className="btn danger" onClick={async () => { await actions.setSteps(day, null); onClose() }}>Effacer ce jour</button> : <button className="btn ghost" onClick={onClose}>Annuler</button>}
+        <button className="btn primary" disabled={!n && g === stepGoal(snap)} onClick={save}>Enregistrer</button>
       </div>
     </Sheet>
   )

@@ -7,7 +7,7 @@ import { formatDayLong, minutesOfDay } from '../lib/dates'
 import { dayRitual, isRendezvousDay, sportCommitment } from '../domain/ritual'
 import { habitState, isHabitDay, resumeState } from '../domain/discipline'
 import { quoteOfDay } from '../domain/quotes'
-import { CheckinCard, CompanionCard, MissionCard, WaterWidget, WeekStrip } from './widgets'
+import { CheckinCard, CompanionCard, MissionCard, StepsWidget, WaterWidget, WeekStrip } from './widgets'
 import { CalorieSummary } from './food-parts'
 import { CycleCard } from './Cycle'
 import { defaultMealSlot } from '../domain/nutrition'
@@ -84,6 +84,8 @@ export function Home({ query }: { query?: URLSearchParams }) {
         <button className="btn secondary" onClick={() => navigate(`/repas/ajouter?repas=${defaultMealSlot()}`)}>Ajouter un aliment</button>
 
         <WaterWidget day={today} compact />
+
+        <StepsWidget day={today} />
 
         <CycleCard />
 

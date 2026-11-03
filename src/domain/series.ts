@@ -2,6 +2,7 @@
 import type { Snapshot } from '../data/types'
 import { addDays, daysBetween, weekStart, type Day } from '../lib/dates'
 import { waterGoalMl, waterMl } from './discipline'
+import { calorieGoal, dayTotals, entriesOn } from './nutrition'
 
 export interface WaterDay { day: Day; ml: number; goal: number; reached: boolean }
 export interface ActivityDay { day: Day; minutes: number; sessions: number }
@@ -116,4 +117,47 @@ export function weeklyDeltas(points: WeightPoint[], today: Day, weeks = 8): Week
     out.push({ start, delta: inWeek.length > 0 && prev !== null && cur !== null ? r1(cur - prev) : null })
   }
   return out
+}
+
+// ------------------------------------------------------------------ calories mangées
+export interface CalorieDay { day: Day; kcal: number; logged: boolean }
+
+/** Calories notées chaque jour sur les `days` derniers jours (aujourd'hui compris), du plus ancien au plus récent. */
+export function calorieSeries(s: Snapshot, today: Day, days: number): CalorieDay[] {
+  return Array.from({ length: days }, (_, i) => {
+    const day = addDays(today, i - (days - 1))
+    return { day, kcal: Math.round(dayTotals(s, day).kcal), logged: entriesOn(s, day).length > 0 }
+  })
+}
+
+export interface CalorieWeek {
+  /** objectif du jour (kcal), ou null si le profil est incomplet */
+  goal: number | null
+  loggedDays: number
+  /** moyenne par jour noté ; la journée en cours est laissée de côté tant qu'elle n'est pas finie (sauf si c'est la seule) */
+  avg: number | null
+  /** moyenne des 7 jours d'avant, même règle */
+  prevAvg: number | null
+  /** jours terminés à ±10 % de l'objectif */
+  nearDays: number
+  countedDays: number
+}
+
+const average = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null)
+
+/** Bilan des 7 derniers jours, comparé aux 7 jours d'avant. Sans jugement : un jour non noté ne compte pas. */
+export function calorieWeek(s: Snapshot, today: Day): CalorieWeek {
+  const goal = calorieGoal(s, today).goal
+  const cur = calorieSeries(s, today, 7)
+  const prev = calorieSeries(s, addDays(today, -7), 7)
+  const counted = (xs: CalorieDay[]) => { const done = xs.filter(d => d.logged && d.day !== today); return done.length ? done : xs.filter(d => d.logged) }
+  const c = counted(cur)
+  return {
+    goal,
+    loggedDays: cur.filter(d => d.logged).length,
+    avg: average(c.map(d => d.kcal)),
+    prevAvg: average(counted(prev).map(d => d.kcal)),
+    nearDays: goal ? c.filter(d => Math.abs(d.kcal - goal) / goal <= 0.1).length : 0,
+    countedDays: c.length,
+  }
 }

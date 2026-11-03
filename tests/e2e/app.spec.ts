@@ -644,3 +644,51 @@ test('courbes : variation du poids semaine par semaine', async ({ page }) => {
   await expect(courbe.getByTestId('graph-variation')).toHaveAttribute('aria-label', /Variation du poids par semaine/)
   await shot(page, '20-variation-semaine')
 })
+
+test('pas saisis à la main, bilan calories de la semaine, calories de séance estimées à part', async ({ page }) => {
+  await onboard(page, 'Lina', true)
+  // Pas du jour : saisie sur l'accueil
+  const pas = page.getByRole('region', { name: 'Pas du jour' })
+  await expect(pas.getByTestId('pas-total')).toHaveText('Objectif 8 000')
+  await pas.getByRole('button', { name: 'Noter mes pas' }).click()
+  await page.getByLabel('Nombre de pas').fill('6240')
+  await page.getByRole('button', { name: 'Enregistrer' }).click()
+  await expect(pas.getByTestId('pas-total')).toHaveText(/^6\s240 sur 8\s000$/)
+  await shot(page, '21-pas-accueil')
+  // Une saisie absurde est refusée
+  await pas.getByRole('button', { name: 'Modifier mes pas' }).click()
+  await page.getByLabel('Nombre de pas').fill('250000')
+  await expect(page.getByRole('alert')).toContainText('entre 1 et')
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Enregistrer' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Fermer' }).click()
+
+  // Calories : un nombre suffit, le bilan de la semaine les reprend
+  await page.goto('./#/repas/ajouter?repas=dejeuner')
+  await page.getByLabel('Calories', { exact: true }).fill('1700')
+  await page.getByRole('button', { name: 'Ajouter', exact: true }).click()
+  // le retour en arrière de l'écran d'ajout doit être terminé avant de changer d'écran
+  await expect(page).not.toHaveURL(/ajouter/)
+
+  // Séance faite ailleurs : calories estimées (poids 70 kg, danse 30 min : 5 × 70 × 0,5 = 175), à part
+  await page.goto('./#/activite')
+  await page.getByRole('button', { name: 'Noter une activité' }).click()
+  await page.getByRole('button', { name: /Danse/ }).click()
+  await page.getByRole('button', { name: "Enregistrer l'activité" }).click()
+  await expect(page.getByText(/≈ \d+ kcal/).first()).toBeVisible()
+  await expect(page.getByText(/jamais déduites de ton objectif/)).toBeVisible()
+
+  // Courbes : bilan calories, pas, estimation
+  await page.goto('./#/progres?onglet=courbes')
+  const cal = page.getByRole('region', { name: 'Calories de la semaine' })
+  await expect(cal.getByRole('heading')).toContainText(/1\s700 kcal par jour/)
+  await expect(cal.getByTestId('graph-barres')).toBeVisible()
+  await expect(cal.getByTestId('calories-poids')).toContainText('plusieurs semaines')
+  const stepsCard = page.getByRole('region', { name: 'Pas sur les derniers jours' })
+  await expect(stepsCard.getByRole('heading')).toContainText(/6\s240 pas par jour/)
+  await expect(page.getByTestId('depense-estimee')).toContainText(/≈ \d+\s?kcal dépensées/)
+  await shot(page, '22-courbes-calories-pas')
+  await noHorizontalScroll(page)
+  // Rien de ces estimations n'a changé l'objectif calorique
+  await page.goto('./#/repas')
+  await expect(page.getByText(/1\s450 kcal/).first()).toBeVisible()
+})

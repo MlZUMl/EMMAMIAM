@@ -83,6 +83,7 @@ function Journal({ query }: { query: URLSearchParams }) {
           ))}
         </section>
       )}
+      <button className="link-btn small" style={{ alignSelf: 'flex-start' }} onClick={() => navigate('/progres?onglet=courbes')}>Voir mon bilan de la semaine</button>
       <WaterWidget day={day} />
       {goalOpen && <GoalSheet onClose={() => setGoalOpen(false)} />}
       {tools && <MealToolsSheet day={day} meal={tools} onClose={() => setTools(null)} />}

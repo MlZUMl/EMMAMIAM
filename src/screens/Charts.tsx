@@ -8,8 +8,13 @@ import { weightTrend } from '../domain/body'
 import { formatLitres } from '../domain/discipline'
 import { rendezvousStats, sportCommitment } from '../domain/ritual'
 import { fmtDiff } from '../domain/wellbeing'
+import { fmtKcal } from '../domain/nutrition'
+import { stepsSeries, stepsSummary, stepGoal } from '../domain/steps'
+import { burnLastDays } from '../domain/burn'
+import { StepsSheet } from './widgets'
+import { navigate } from '../lib/router'
 import {
-  RANGES, activitySeries, activitySummary, waterSeries, waterSummary, weeklyDeltas, weightStats, weightWindow,
+  RANGES, activitySeries, activitySummary, calorieSeries, calorieWeek, waterSeries, waterSummary, weeklyDeltas, weightStats, weightWindow,
   type DaysRange, type WeightRange,
 } from '../domain/series'
 
@@ -23,7 +28,9 @@ export function ChartsPanel() {
   return (
     <>
       <WeightCurveCard />
+      <CalorieWeekCard />
       <WaterChartCard />
+      <StepsChartCard />
       <ActivityChartCard />
     </>
   )
@@ -122,6 +129,7 @@ function ActivityChartCard() {
   const planned = sport?.days.length ?? 0
   const week = rendezvousStats(snap, weekStart(today), today, today)
   const usual = sport?.usual_minutes ?? undefined
+  const burn = burnLastDays(snap, today, series.length)
   return (
     <section className="card" aria-label="Activité sur les derniers jours">
       <div className="card-head">
@@ -144,6 +152,78 @@ function ActivityChartCard() {
         <Kpi label="Minutes" value={sum.minutes} />
         <Kpi label="Jours actifs" value={`${sum.activeDays} / ${sum.days}`} />
       </div>
+      {burn !== null && burn > 0 && (
+        <p className="small muted" data-testid="depense-estimee">≈ {fmtKcal(burn)} dépensées en séances sur {series.length} jours — une estimation indicative, à part : elle ne change jamais ton objectif.</p>
+      )}
+    </section>
+  )
+}
+
+// ------------------------------------------------------------------ calories de la semaine
+function CalorieWeekCard() {
+  const { snap, today } = useApp()
+  const series = calorieSeries(snap, today, 7)
+  const wk = calorieWeek(snap, today)
+  const all = weightTrend(snap.weights)
+  const thisWeekDelta = weeklyDeltas(all, today, 1)[0]?.delta ?? null
+  const diff = wk.avg !== null && wk.prevAvg !== null ? wk.avg - wk.prevAvg : null
+  return (
+    <section className="card" aria-label="Calories de la semaine">
+      <div className="card-head"><span className="emoji-bubble" aria-hidden="true">🍽️</span>
+        <div><div className="kicker">Calories</div>
+          <h2>{wk.avg !== null ? `${fmtKcal(wk.avg)} par jour` : 'Rien de noté cette semaine'}</h2>
+          <span className="small muted">en moyenne sur les 7 derniers jours{wk.avg !== null ? ' (jours notés)' : ''}</span></div></div>
+      {wk.loggedDays === 0
+        ? <><p className="muted small">Note tes calories chaque jour : le bilan de la semaine se construit tout seul.</p>
+            <button className="btn secondary" onClick={() => navigate('/repas/ajouter')}>Noter des calories</button></>
+        : (
+          <>
+            <DayBars items={series.map(d => ({ day: d.day, value: d.kcal }))} goal={wk.goal ?? undefined} today={today} step={500}
+              color="var(--btn)" soft="var(--btn)" format={v => String(v)} yFormat={v => String(Math.round(v))}
+              label={`Calories notées par jour sur 7 jours : moyenne ${wk.avg ?? 0} kcal`} />
+            <Legend items={[{ color: 'var(--btn)', text: 'Calories notées' }, ...(wk.goal ? [{ color: 'var(--vert)', text: 'Objectif', dashed: true }] : [])]} />
+            <div className="kpis">
+              <Kpi label="Jours notés" value={`${wk.loggedDays} / 7`} />
+              <Kpi label="Près de l'objectif" value={wk.goal ? `${wk.nearDays} / ${wk.countedDays}` : '—'} sub={wk.goal ? '±10 % · jours finis' : 'objectif à définir'} />
+              <Kpi label="Semaine d'avant" value={wk.prevAvg !== null ? wk.prevAvg.toLocaleString('fr-FR') : '—'} sub={diff !== null ? `${diff > 0 ? '+' : diff < 0 ? '−' : ''}${Math.abs(diff).toLocaleString('fr-FR')} kcal` : 'kcal / jour'} />
+            </div>
+            <p className="muted small" data-testid="calories-poids">
+              {thisWeekDelta !== null
+                ? `Cette semaine, ta tendance de poids a varié de ${fmtDiff(thisWeekDelta, 'kg')}. `
+                : 'Dès que tu te pèses cette semaine, la variation de ton poids s\'affiche ici, à côté de tes calories. '}
+              Les deux se lisent sur plusieurs semaines, jamais sur un seul jour.
+            </p>
+          </>
+        )}
+    </section>
+  )
+}
+
+// ------------------------------------------------------------------ pas
+function StepsChartCard() {
+  const { snap, today } = useApp()
+  const [range, setRange] = useState<DaysRange>('7')
+  const [edit, setEdit] = useState(false)
+  const series = stepsSeries(snap, today, RANGES[range])
+  const sum = stepsSummary(series)
+  const goal = stepGoal(snap)
+  return (
+    <section className="card" aria-label="Pas sur les derniers jours">
+      <div className="card-head"><span className="emoji-bubble" aria-hidden="true">👟</span>
+        <div><div className="kicker">Pas</div>
+          <h2>{sum.avg !== null ? `${sum.avg.toLocaleString('fr-FR')} pas par jour` : 'Aucun pas noté'}</h2>
+          <span className="small muted">{sum.avg !== null ? 'en moyenne sur les jours notés' : 'saisis le total de ta journée depuis l\'accueil'}</span></div></div>
+      <Segmented label="Période des pas" value={range} onChange={setRange} options={[{ id: '7', label: '7 jours' }, { id: '30', label: '30 jours' }]} />
+      <DayBars items={series.map(d => ({ day: d.day, value: d.steps }))} goal={goal} goalLabel={`objectif ${goal.toLocaleString('fr-FR')}`} today={today} step={2000}
+        color="var(--or)" soft="var(--or-clair)" format={v => (v >= 1000 ? `${fr(v / 1000, 1)}k` : String(v))} yFormat={v => (v === 0 ? '0' : `${fr(v / 1000, 0)}k`)}
+        label={`Pas par jour sur ${series.length} jours : objectif atteint ${sum.daysReached} jour${sum.daysReached > 1 ? 's' : ''}`} />
+      <Legend items={[{ color: 'var(--or)', text: 'Objectif atteint' }, { color: 'var(--or-clair)', text: 'En dessous' }, { color: 'var(--vert)', text: 'Objectif', dashed: true }]} />
+      <div className="kpis two">
+        <Kpi label="Objectif atteint" value={`${sum.daysReached} / ${sum.days} jours`} />
+        <Kpi label="Jours notés" value={`${sum.loggedDays} / ${sum.days}`} />
+      </div>
+      <button className="btn secondary" onClick={() => setEdit(true)}>Noter mes pas</button>
+      {edit && <StepsSheet day={today} onClose={() => setEdit(false)} />}
     </section>
   )
 }
