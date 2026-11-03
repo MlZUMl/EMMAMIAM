@@ -81,7 +81,7 @@ export function Home({ query }: { query?: URLSearchParams }) {
         </section>
 
         <button style={{ all: 'unset', cursor: 'pointer', display: 'block' }} onClick={() => navigate('/repas')} aria-label="Ouvrir mon journal alimentaire"><CalorieSummary day={today} compact /></button>
-        <button className="btn secondary" onClick={() => navigate(`/repas/ajouter?repas=${defaultMealSlot()}`)}>Ajouter un aliment</button>
+        <button className="btn secondary" onClick={() => navigate(`/repas/ajouter?repas=${defaultMealSlot()}`)}>Noter un repas</button>
 
         <WaterWidget day={today} compact />
 

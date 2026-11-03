@@ -7,6 +7,15 @@ import { hash } from './ids'
 
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator) || import.meta.env.DEV) return
+  // Mise à jour : quand une nouvelle version prend la main, la page se recharge d'elle-même une seule fois
+  // (sauf pendant une séance guidée, pour ne rien interrompre ; elle s'appliquera au lancement suivant).
+  const hadController = Boolean(navigator.serviceWorker.controller)
+  let reloaded = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded || location.hash.startsWith('#/seance')) return
+    reloaded = true
+    location.reload()
+  })
   navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(err => console.warn('Service worker', err))
 }
 

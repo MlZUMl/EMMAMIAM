@@ -8,7 +8,7 @@ import { IconBack, IconChevron, IconPlus, IconRefresh, IconStar, IconTrash, Icon
 import type { FoodEntry, MealSlot } from '../data/types'
 import { copySources, favoriteKcal, favoritesFor, suggestFavoriteName } from '../domain/journal'
 import { MEALS, entriesOn, mealTarget, calorieGoal, sumEntries, fmtKcal, toMeal, mealLabel } from '../domain/nutrition'
-import { CalorieSummary, GoalSheet, QuantitySheet, QuickAddSheet, entryToItem } from './food-parts'
+import { CalorieSummary, GoalSheet, QuickAddSheet } from './food-parts'
 
 export function Food({ query }: { query: URLSearchParams }) {
   return (
@@ -32,9 +32,6 @@ function Journal({ query }: { query: URLSearchParams }) {
   const goal = calorieGoal(snap, today).goal
   const entries = entriesOn(snap, day)
   const legacy = snap.meals.filter(m => m.day === day)
-  const item = edit ? entryToItem(edit) : null
-  // Anciennes lignes « recette » : modifiables comme un simple nombre de calories.
-  const quick = edit ? edit.source === 'rapide' || edit.source === 'recette' || !item : false
   return (
     <>
       <div className="row between">
@@ -59,7 +56,7 @@ function Journal({ query }: { query: URLSearchParams }) {
               <button key={e.id} className="entry" onClick={() => setEdit(e)}>
                 <span className="grow">
                   <span className="name">{e.name}</span>
-                  <span className="muted small">{e.source === 'rapide' ? 'ajout rapide' : e.unit === 'portion' ? (e.portion_label ?? `${e.quantity} portion`) : `${String(e.quantity).replace('.', ',')} ${e.unit}`}{e.brand ? ' · ' + e.brand : ''}</span>
+                  <span className="muted small">{e.source === 'rapide' || e.source === 'recette' ? '' : e.unit === 'portion' ? (e.portion_label ?? `${e.quantity} portion`) : `${String(e.quantity).replace('.', ',')} ${e.unit}`}{e.brand ? ' · ' + e.brand : ''}</span>
                 </span>
                 <span className="kcal">{Math.round(e.kcal)} kcal</span>
               </button>
@@ -87,8 +84,7 @@ function Journal({ query }: { query: URLSearchParams }) {
       <WaterWidget day={day} />
       {goalOpen && <GoalSheet onClose={() => setGoalOpen(false)} />}
       {tools && <MealToolsSheet day={day} meal={tools} onClose={() => setTools(null)} />}
-      {edit && quick && <QuickAddSheet day={day} meal={edit.meal} entry={edit} onClose={() => setEdit(null)} />}
-      {edit && !quick && item && <QuantitySheet item={item} entry={edit} day={edit.day} meal={edit.meal} onClose={() => setEdit(null)} />}
+      {edit && <QuickAddSheet day={day} meal={edit.meal} entry={edit} onClose={() => setEdit(null)} />}
     </>
   )
 }

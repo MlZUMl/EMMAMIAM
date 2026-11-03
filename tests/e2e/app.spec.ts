@@ -61,16 +61,6 @@ test.beforeEach(async ({ page }) => {
   await page.route('https://world.openfoodfacts.org/**', r => r.fulfill({ status: 503, body: '' }))
 })
 
-// Réponses Open Food Facts simulées
-const OFF_SEARCH = { products: [
-  { code: '3250390000001', product_name_fr: 'Galettes de riz chocolat noir', brands: 'Marque A', quantity: '100 g', serving_quantity: 12, serving_size: '1 galette (12 g)',
-    nutriments: { 'energy-kcal_100g': 470, proteins_100g: 7, carbohydrates_100g: 63, fat_100g: 20, fiber_100g: 6 }, ingredients_text_fr: 'riz, chocolat noir 50 %' },
-  { code: '3250390000002', product_name_fr: 'Galettes saveur lardons', brands: 'Marque B', nutriments: { 'energy-kcal_100g': 480 }, ingredients_text_fr: 'maïs, arôme, poudre de porc' },
-] }
-const OFF_PORK = { status: 1, product: { product_name_fr: 'Saucisses de Strasbourg', brands: 'Marque C', nutriments: { 'energy-kcal_100g': 280, proteins_100g: 12, carbohydrates_100g: 2, fat_100g: 25 }, ingredients_text_fr: 'viande de porc, eau, sel' } }
-const OFF_YAOURT = { status: 1, product: { product_name_fr: 'Skyr nature', brands: 'Marque D', quantity: '450 g', serving_quantity: 150, serving_size: '150 g',
-  nutriments: { 'energy-kcal_100g': 60, proteins_100g: 10, carbohydrates_100g: 4, fat_100g: 0.2 }, ingredients_text_fr: 'lait écrémé, ferments' } }
-
 test('accueil, rituel de 17 h 15 en mode épuisée, séance réelle, récompense unique et persistance', async ({ page }) => {
   await onboard(page)
   await shot(page, '01-accueil')
@@ -148,9 +138,13 @@ test('eau en litres : boutons rapides, objectif, modification et suppression d\'
   await noHorizontalScroll(page)
 })
 
-test('journal alimentaire : objectif, recherche Ciqual, marques sans porc, code-barres, saisie rapide des calories', async ({ page }) => {
+test('journal alimentaire : objectif, puis seulement le plat et ses calories', async ({ page }) => {
   await onboard(page)
   await page.getByRole('link', { name: 'Repas' }).click()
+  // Un seul écran : plus d'onglets Recettes, Menu, Courses
+  await expect(page.getByRole('tab', { name: 'Recettes' })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Menu' })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Courses' })).toHaveCount(0)
   // Objectif calorique calculé (Mifflin-St Jeor), modifiable
   await page.getByRole('button', { name: 'Définir mon objectif' }).click()
   await page.getByLabel('Année de naissance').fill('1996')
@@ -162,75 +156,47 @@ test('journal alimentaire : objectif, recherche Ciqual, marques sans porc, code-
   await expect(page.getByTestId('kcal-restantes')).toContainText('1')
   await expect(page.getByTestId('total-dejeuner')).toHaveText('0 kcal / 505 kcal')
 
-  // Recherche Ciqual : pomme, 150 g, recalcul en direct
+  // Ajouter : le plat mangé et son nombre de calories, rien d'autre
   await page.getByRole('button', { name: 'Ajouter au déjeuner' }).click()
-  // L'ouverture se fait sur la saisie des calories : un nombre suffit
-  await expect(page.getByRole('tab', { name: 'Calories' })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByLabel('Calories', { exact: true })).toBeVisible()
-  await page.getByRole('tab', { name: 'Rechercher' }).click()
-  await page.getByLabel('Rechercher un aliment').fill('pomme pulpe peau crue')
-  await page.getByRole('button', { name: /^Pomme, pulpe et peau, crue/ }).first().click()
-  await page.getByRole('group', { name: 'Unité' }).getByRole('button', { name: 'grammes' }).click()
-  await page.getByRole('textbox', { name: 'Quantité', exact: true }).fill('150')
-  await expect(page.getByTestId('kcal-quantite')).toHaveText('150 g · 78 kcal')
+  await expect(page.getByRole('tab')).toHaveCount(0)
+  await expect(page.getByLabel('Rechercher un aliment')).toHaveCount(0)
+  await shot(page, '05-ajouter')
+  await page.getByLabel('Plat mangé').fill('Pâtes au poulet')
+  await page.getByLabel('Calories', { exact: true }).fill('650')
   await page.getByRole('button', { name: 'Ajouter', exact: true }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'Ajouté au déjeuner' })).toBeVisible()
+  await expect(page).not.toHaveURL(/ajouter/)
+  await expect(page.getByLabel('Déjeuner').getByText('Pâtes au poulet')).toBeVisible()
+  await expect(page.getByTestId('total-dejeuner')).toContainText('650 kcal')
 
-  // Marques (Open Food Facts simulé) : le produit au porc est retiré
-  await page.unroute('https://world.openfoodfacts.org/**')
-  await page.route('https://world.openfoodfacts.org/cgi/search.pl**', r => r.fulfill({ json: OFF_SEARCH }))
-  await page.route('https://world.openfoodfacts.org/api/v2/product/3250390000009.json**', r => r.fulfill({ json: OFF_PORK }))
-  await page.route('https://world.openfoodfacts.org/api/v2/product/3250390000010.json**', r => r.fulfill({ json: OFF_YAOURT }))
-  await page.getByLabel('Rechercher un aliment').fill('galettes')
-  await page.getByRole('button', { name: /Chercher « galettes » parmi les marques/ }).click()
-  await expect(page.getByRole('button', { name: /Galettes de riz chocolat noir/ })).toBeVisible()
-  await expect(page.getByText('Galettes saveur lardons')).toHaveCount(0)
-  await page.getByRole('button', { name: /Galettes de riz chocolat noir/ }).click()
-  await page.getByRole('textbox', { name: 'Quantité', exact: true }).fill('2')
-  await expect(page.getByTestId('kcal-quantite')).toHaveText('24 g · 113 kcal')
-  await page.getByRole('dialog').getByRole('group', { name: 'Repas' }).getByRole('button', { name: 'Collation' }).click()
+  // Dîner, puis un plat au porc : refusé
+  await page.getByRole('button', { name: 'Ajouter au dîner' }).click()
+  await page.getByLabel('Plat mangé').fill('Croque au jambon')
+  await page.getByLabel('Calories', { exact: true }).fill('400')
   await page.getByRole('button', { name: 'Ajouter', exact: true }).click()
-
-  // Code-barres : produit au porc refusé, produit connu ajouté
-  await page.getByRole('tab', { name: 'Scanner' }).click()
-  await page.getByLabel('Code-barres').fill('3250390000009')
-  await page.getByRole('button', { name: 'OK' }).click()
-  await expect(page.getByRole('alert')).toContainText('contient du porc')
-  await page.getByLabel('Code-barres').fill('3250390000010')
-  await page.getByRole('button', { name: 'OK' }).click()
-  await expect(page.getByText('Skyr nature')).toBeVisible()
-  await page.getByRole('button', { name: 'Ajouter', exact: true }).click()
-
-  // Saisie rapide : seulement le nombre de calories
-  await page.getByRole('tab', { name: 'Calories' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'porc' })).toBeVisible()
+  await page.getByLabel('Plat mangé').fill('Soupe de légumes')
   await page.getByLabel('Calories', { exact: true }).fill('250')
-  await page.getByRole('group', { name: 'Repas' }).last().getByRole('button', { name: 'Dîner' }).click()
   await page.getByRole('button', { name: 'Ajouter', exact: true }).click()
+  await expect(page).not.toHaveURL(/ajouter/)
   await expect(page.getByLabel('Dîner').getByText('250 kcal').first()).toBeVisible()
-
-  // Journal : totaux par repas et pour la journée (78 + 90 + 113 + 250)
-  await expect(page.getByTestId('kcal-mangees')).toHaveText('531 kcal')
-  await expect(page.getByTestId('total-dejeuner')).toContainText('168 kcal')
+  await expect(page.getByTestId('kcal-mangees')).toHaveText('900 kcal')
   await shot(page, '06-journal')
   await noHorizontalScroll(page)
 
-  // Modifier une quantité depuis le journal
-  await page.getByLabel('Déjeuner').getByRole('button', { name: /Pomme, pulpe et peau/ }).click()
-  await page.getByRole('textbox', { name: 'Quantité', exact: true }).fill('300')
-  await page.getByRole('button', { name: 'Enregistrer' }).click()
-  await expect(page.getByTestId('kcal-mangees')).toHaveText('609 kcal')
-
-  // Corriger un nombre de calories saisi : la ligne est modifiée, pas doublée
-  await page.getByLabel('Dîner').getByRole('button', { name: /Ajout rapide/ }).click()
+  // Corriger : la ligne est modifiée, pas doublée
+  await page.getByLabel('Dîner').getByRole('button', { name: /Soupe de légumes/ }).click()
+  await expect(page.getByLabel('Plat mangé')).toHaveValue('Soupe de légumes')
   await page.getByLabel('Calories', { exact: true }).fill('300')
   await page.getByRole('button', { name: 'Enregistrer' }).click()
-  await expect(page.getByLabel('Dîner').getByRole('button', { name: /Ajout rapide/ })).toHaveCount(1)
-  await expect(page.getByTestId('kcal-mangees')).toHaveText('659 kcal')
-  await expect(page.getByRole('tab', { name: 'Recettes' })).toHaveCount(0)
-  await expect(page.getByRole('tab', { name: 'Menu' })).toHaveCount(0)
+  await expect(page.getByLabel('Dîner').getByRole('button', { name: /Soupe de légumes/ })).toHaveCount(1)
+  await expect(page.getByTestId('kcal-mangees')).toHaveText('950 kcal')
+  // Supprimer
+  await page.getByLabel('Dîner').getByRole('button', { name: /Soupe de légumes/ }).click()
+  await page.getByRole('button', { name: 'Supprimer', exact: true }).click()
+  await expect(page.getByTestId('kcal-mangees')).toHaveText('650 kcal')
   // Calories visibles sur l'accueil aussi
   await page.getByRole('link', { name: 'Accueil' }).click()
-  await expect(page.getByTestId('kcal-mangees')).toHaveText('659 kcal')
+  await expect(page.getByTestId('kcal-mangees')).toHaveText('650 kcal')
 })
 
 test('capsule scellée : invisible avant la date, ouverture à la date prévue', async ({ page }) => {
@@ -475,8 +441,8 @@ test('journal plus rapide : « comme hier », repas favori enregistré puis rajo
   await onboard(page, 'Lina', true)
   // Lundi : un petit-déjeuner noté (ajout rapide)
   await page.clock.setFixedTime(new Date('2026-10-19T08:00:00+02:00'))
-  await page.goto('./#/repas/ajouter?repas=petit-dejeuner&jour=2026-10-19&onglet=rapide')
-  await page.getByLabel('Nom').fill('Bol avoine et fruits')
+  await page.goto('./#/repas/ajouter?repas=petit-dejeuner&jour=2026-10-19')
+  await page.getByLabel('Plat mangé').fill('Bol avoine et fruits')
   await page.getByLabel('Calories').fill('380')
   await page.getByRole('button', { name: 'Ajouter', exact: true }).click()
   await expect(page).not.toHaveURL(/ajouter/) // enregistré, retour à l'écran précédent
@@ -493,9 +459,8 @@ test('journal plus rapide : « comme hier », repas favori enregistré puis rajo
   await page.getByLabel('Nom du favori').fill('Mon petit-déj habituel')
   await page.getByRole('button', { name: 'Enregistrer en favori' }).click()
   await expect(page.getByRole('status').filter({ hasText: 'favoris' })).toBeVisible()
-  // Le favori se rajoute en un geste depuis l'écran d'ajout (ici en collation)
-  await page.getByRole('button', { name: 'Ajouter à la collation' }).click()
-  await page.getByRole('tab', { name: 'Rechercher' }).click()
+  // Le favori se rajoute en un geste depuis le journal (ici en collation)
+  await page.getByRole('button', { name: 'Favoris et reprise · Collation' }).click()
   await page.getByRole('region', { name: 'Mes repas favoris' }).getByRole('button', { name: /Mon petit-déj habituel/ }).click()
   await expect(page.getByTestId('total-collation')).toHaveText(/^380 kcal/)
   await expect(page.getByTestId('kcal-mangees')).toHaveText('760 kcal')
@@ -664,6 +629,7 @@ test('pas saisis à la main, bilan calories de la semaine, calories de séance e
 
   // Calories : un nombre suffit, le bilan de la semaine les reprend
   await page.goto('./#/repas/ajouter?repas=dejeuner')
+  await page.getByLabel('Plat mangé').fill('Repas du midi')
   await page.getByLabel('Calories', { exact: true }).fill('1700')
   await page.getByRole('button', { name: 'Ajouter', exact: true }).click()
   // le retour en arrière de l'écran d'ajout doit être terminé avant de changer d'écran
