@@ -1,5 +1,6 @@
 // Parcours réels dans le navigateur (Chromium), écran de 360 × 740 px.
 import { test, expect, type Page } from '@playwright/test'
+import { ITEMS, SLOTS, slotLabel } from '../../src/domain/catalog'
 
 const SHOTS = process.env.SHOTS_DIR
 const shot = async (page: Page, name: string) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true }) }
@@ -227,22 +228,28 @@ test('univers : création du personnage, décoration réelle, objets conservés'
   await onboard(page)
   await page.getByRole('link', { name: 'Univers' }).click()
   await expect(page.getByRole('heading', { name: 'Crée ton personnage' })).toBeVisible()
-  await page.getByRole('group', { name: 'Style' }).getByRole('button', { name: 'Voile' }).click()
+  // Un seul personnage en aquarelle et un seul lieu : plus de choix de personnage, de style, de tenue ni de pièce
+  for (const g of ['Personnage', 'Style', 'Tenue', 'Univers']) await expect(page.getByRole('group', { name: g })).toHaveCount(0)
   await page.getByRole('button', { name: 'Entrer dans mon univers' }).click()
   await expect(page.getByRole('img', { name: 'Scène de ton univers' })).toBeVisible()
-  await expect(page.getByText(/Mes objets \(2\)/)).toBeVisible() // lampe et tapis de bienvenue
+  await expect(page.getByRole('heading', { name: /Ma collection \(2 \/ 40\)/ })).toBeVisible() // lampe et tapis de bienvenue
+  await expect(page.getByRole('tab')).toHaveCount(3) // Univers, Compagnon, Boutique : plus d'onglets de pièces
   await page.getByRole('button', { name: 'Décorer' }).click()
-  await page.getByRole('button', { name: 'Emplacement libre : table' }).click()
-  await page.getByRole('button', { name: /Lampe douce/ }).click()
+  await page.getByRole('button', { name: `Emplacement libre : ${slotLabel('table-1')}` }).click()
+  // Ce qui est obtenu et ce qui reste à débloquer sont distingués dans la fenêtre de choix
+  await expect(page.getByRole('dialog').getByText('À débloquer', { exact: true })).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: /Lampe douce/ }).click()
   await page.getByRole('button', { name: 'Terminé' }).click()
-  await expect(page.getByRole('button', { name: /Lampe douce \(emplacement table\)/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: new RegExp(`Lampe douce \\(${slotLabel('table-1')}\\)`) })).toBeVisible()
   await shot(page, '09-univers')
   await noHorizontalScroll(page)
   await page.reload()
-  await expect(page.getByRole('button', { name: /Lampe douce \(emplacement table\)/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: new RegExp(`Lampe douce \\(${slotLabel('table-1')}\\)`) })).toBeVisible()
   // Compagnon : personnalisation
   await page.getByRole('tab', { name: 'Compagnon' }).click()
   await expect(page.getByRole('heading', { name: 'Pompon' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Espèce' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Couleur' })).toHaveCount(0) // la couleur est celle de l'aquarelle
   await shot(page, '10-compagnon')
 })
 
@@ -657,4 +664,139 @@ test('pas saisis à la main, bilan calories de la semaine, calories de séance e
   // Rien de ces estimations n'a changé l'objectif calorique
   await page.goto('./#/repas')
   await expect(page.getByText(/1\s450 kcal/).first()).toBeVisible()
+})
+
+/** Donne tous les objets (écriture directe dans IndexedDB), puis recharge. */
+async function grantEverything(page: Page) {
+  const refs = ITEMS.filter(i => !i.mystery).map(i => ['item', i.id])
+  await page.evaluate(async (refs) => {
+    const db = await new Promise<IDBDatabase>((res, rej) => { const r = indexedDB.open('elan'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error) })
+    await new Promise<void>((res, rej) => {
+      const tx = db.transaction('reward_grants', 'readwrite')
+      const now = new Date().toISOString()
+      for (const [kind, ref] of refs) tx.objectStore('reward_grants').put({ id: `test:${kind}:${ref}`, created_at: now, updated_at: now, kind, ref, xp: 0, points: 0, reason: 'test', granted_at: now })
+      tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error)
+    })
+    db.close()
+  }, refs)
+  await page.reload()
+}
+
+async function createRefuge(page: Page) {
+  await onboard(page)
+  await page.goto('./#/univers')
+  await page.getByRole('button', { name: 'Entrer dans mon univers' }).click()
+  await expect(page.getByRole('button', { name: 'Entrer dans mon univers' })).toHaveCount(0)
+}
+
+const libre = (page: Page, slotId: string) => page.getByRole('button', { name: `Emplacement libre : ${slotLabel(slotId)}`, exact: true })
+const pose = (page: Page, itemId: string, slotId: string) => page.getByRole('button', { name: `${ITEMS.find(i => i.id === itemId)!.name} (${slotLabel(slotId)})`, exact: true })
+// dans la fenêtre de choix ouverte (la collection, derrière, a elle aussi une carte par objet)
+const carte = (page: Page, itemId: string) => page.getByRole('dialog').locator('button.item-card', { hasText: ITEMS.find(i => i.id === itemId)!.name })
+const objetsDe = (slotId: string) => ITEMS.filter(i => !i.mystery && i.categorie === SLOTS.find(s => s.id === slotId)!.categorie)
+
+test('refuge : poser, changer, déplacer et retirer des objets dans chaque emplacement, avec rechargement', async ({ page }) => {
+  const problemes: string[] = []
+  page.on('pageerror', e => problemes.push('erreur page : ' + e.message))
+  page.on('console', m => { if (m.type() === 'error') problemes.push('console : ' + m.text()) })
+  await createRefuge(page)
+  await grantEverything(page)
+  await page.goto('./#/univers')
+  await page.getByRole('button', { name: 'Décorer' }).click()
+
+  // Chaque emplacement reçoit un objet de sa catégorie : le premier de la liste qui n'est pas déjà posé ailleurs
+  const attendus: Record<string, string> = {}
+  const dejaPoses = new Set<string>()
+  for (const slot of SLOTS) {
+    const objet = objetsDe(slot.id).find(i => !dejaPoses.has(i.id))!
+    await libre(page, slot.id).click()
+    await carte(page, objet.id).click()
+    await expect(pose(page, objet.id, slot.id), `${slot.id} : ${objet.name} posé`).toBeVisible()
+    attendus[slot.id] = objet.id; dejaPoses.add(objet.id)
+  }
+  await shot(page, 'refuge-decore')
+  await noHorizontalScroll(page)
+
+  // Changer : un autre objet de la même catégorie prend la place, le premier retourne dans la collection
+  const autre = objetsDe('etagere-1').find(i => !dejaPoses.has(i.id))!
+  await pose(page, attendus['etagere-1'], 'etagere-1').click()
+  await carte(page, autre.id).click()
+  await expect(pose(page, autre.id, 'etagere-1')).toBeVisible()
+  await expect(pose(page, attendus['etagere-1'], 'etagere-1')).toHaveCount(0)
+  attendus['etagere-1'] = autre.id
+
+  // Retirer
+  await pose(page, attendus['mur-1'], 'mur-1').click()
+  await page.getByRole('button', { name: "Libérer l'emplacement" }).click()
+  await expect(libre(page, 'mur-1')).toBeVisible()
+  delete attendus['mur-1']
+
+  // Déplacer depuis la collection : l'objet de mur-2 va en mur-3 (qui perd le sien, rangé dans la collection)
+  await page.getByRole('button', { name: 'Terminé' }).click()
+  const deplace = ITEMS.find(i => i.id === attendus['mur-2'])!
+  const remplace = ITEMS.find(i => i.id === attendus['mur-3'])!
+  await page.getByRole('button', { name: `${deplace.name}, posé` }).click()
+  await page.getByRole('button', { name: `${slotLabel('mur-3')} (remplace ${remplace.name})` }).click()
+  await page.getByRole('button', { name: 'Décorer' }).click()
+  await expect(pose(page, deplace.id, 'mur-3')).toBeVisible()
+  await expect(libre(page, 'mur-2')).toBeVisible()
+  await expect(pose(page, remplace.id, 'mur-3')).toHaveCount(0)
+  attendus['mur-3'] = deplace.id; delete attendus['mur-2']
+
+  // Rechargement : tout est conservé
+  await page.reload()
+  for (const [slot, id] of Object.entries(attendus)) await expect(pose(page, id, slot), `après rechargement ${slot}`).toBeVisible()
+  expect(problemes).toEqual([])
+})
+
+test('refuge : les anciens placements par pièce sont repris dans le lieu unique', async ({ page }) => {
+  await createRefuge(page)
+  await grantEverything(page)
+  // Avant la refonte : « chambre:table », « jardin:eau », « balcon:ciel »
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((res, rej) => { const r = indexedDB.open('elan'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error) })
+    await new Promise<void>((res, rej) => {
+      const tx = db.transaction('avatar_profiles', 'readwrite')
+      const st = tx.objectStore('avatar_profiles')
+      const get = st.get('avatar')
+      get.onsuccess = () => { st.put({ ...get.result, equipped: { 'chambre:table': 'lampe-douce', 'jardin:eau': 'fontaine', 'balcon:ciel': 'etoile', 'perso:tenue': 'av-sport' } }) }
+      tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error)
+    })
+    db.close()
+  })
+  await page.reload()
+  await page.goto('./#/univers')
+  for (const [id, slot] of [['lampe-douce', 'table-1'], ['fontaine', 'jardin-1'], ['etoile', 'ciel-1']] as const) await expect(pose(page, id, slot), `${id} repris`).toBeVisible()
+  await page.reload() // la reprise est enregistrée : rien ne change au chargement suivant
+  await expect(pose(page, 'lampe-douce', 'table-1')).toBeVisible()
+})
+
+// Téléphone lent : chaque écriture dans IndexedDB attend ~400 ms avant de se terminer.
+test('refuge : trois poses rapprochées sur un téléphone lent ne s\'écrasent pas', async ({ page }) => {
+  await page.addInitScript(() => {
+    const orig = IDBDatabase.prototype.transaction
+    IDBDatabase.prototype.transaction = function (this: IDBDatabase, stores: string | string[], mode?: IDBTransactionMode, opts?: IDBTransactionOptions) {
+      const names = Array.isArray(stores) ? stores : [stores]
+      if (mode === 'readwrite' && names.includes('avatar_profiles') && (window as any).__lent) {
+        const blocker = orig.call(this, names, 'readwrite')
+        const store = blocker.objectStore(names[0])
+        const fin = Date.now() + 400
+        const boucle = () => { if (Date.now() < fin) store.get('x').onsuccess = boucle }
+        boucle()
+      }
+      return orig.call(this, stores as any, mode, opts)
+    } as typeof IDBDatabase.prototype.transaction
+  })
+  await createRefuge(page)
+  await grantEverything(page)
+  await page.goto('./#/univers')
+  await page.evaluate(() => { (window as any).__lent = true })
+  await page.getByRole('button', { name: 'Décorer' }).click()
+  const trois = [['mur-1', 'horloge'], ['mur-3', 'rideaux'], ['etagere-1', 'radio']] as const
+  for (const [slot, id] of trois) { await libre(page, slot).click(); await carte(page, id).click() }
+  await page.waitForTimeout(3000)
+  for (const [slot, id] of trois) await expect(pose(page, id, slot), `${id} posé`).toBeVisible()
+  await page.evaluate(() => { (window as any).__lent = false })
+  await page.reload()
+  for (const [slot, id] of trois) await expect(pose(page, id, slot), `${id} encore posé après rechargement`).toBeVisible()
 })

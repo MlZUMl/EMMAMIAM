@@ -4,6 +4,7 @@ import { useApp } from '../app/state'
 import { Segmented, Sheet } from '../ui/components'
 import { CompanionArt } from '../art/Companion'
 import { AvatarArt } from '../art/Avatar'
+import { artUrl } from '../art/images'
 import { IconCheck, IconLock } from '../ui/icons'
 import { Coin } from '../ui/ornaments'
 import { navigate } from '../lib/router'
@@ -25,11 +26,16 @@ export function PointsPill({ onClick }: { onClick?: () => void }) {
   )
 }
 
-/** Aperçu d'un objet porté : sur l'avatar ou sur le compagnon (le reste de la tenue actuelle est conservé). */
-export function ItemPreview({ item, size, worn = false }: { item: ShopItem; size: number; worn?: boolean }) {
+/** Aperçu d'un objet porté : sur l'avatar ou sur le compagnon (le reste de la tenue actuelle est conservé).
+ *  Vignette : l'aquarelle de l'objet seul quand elle existe. */
+export function ItemPreview({ item, size, worn = false, vignette = false }: { item: ShopItem; size: number; worn?: boolean; vignette?: boolean }) {
   const { snap } = useApp()
   const comp = snap.companion_profiles[0]
   const avatar = snap.avatar_profiles[0]
+  const image = item.target !== 'avatar' ? (vignette && item.slot !== 'coiffure' ? artUrl(`article-${item.id}`) : undefined)
+    : vignette ? artUrl(`article-${item.id}`) ?? artUrl(`portrait-${item.id}`)
+    : item.slot === 'tenue' ? undefined : artUrl(`portrait-${item.id}`)
+  if (image) return <img src={image} alt={item.name} width={size} height={size} style={{ objectFit: 'contain' }} />
   if (item.target === 'avatar') {
     const a = avatar ?? { character: 'aube', style: 'longs', outfit: 'jogging', equipped: {} as Record<string, string> }
     const look = avatarLook({ ...a, equipped: worn ? a.equipped : { ...a.equipped, [avatarKey(item)]: item.id } })
@@ -88,7 +94,7 @@ export function ShopPanel() {
           return (
             <button key={item.id} className={`item-card shop-card ${on ? 'on' : ''}`} onClick={() => setPick(item)} aria-label={`${item.name}, ${TIER_LABELS[item.tier]}, ${has ? (on ? 'porté' : 'acheté') : fmtPts(price)}`}>
               <span className={`tier tier-${item.tier}`}>{TIER_LABELS[item.tier]}</span>
-              <ItemPreview item={item} size={item.target === 'avatar' ? 78 : 64} />
+              <ItemPreview item={item} size={item.target === 'avatar' ? 78 : 64} vignette />
               <span className="name">{item.name}</span>
               {has ? <span className="price owned">{on ? <><IconCheck style={{ width: 14 }} /> Porté</> : 'Acheté'}</span>
                 : <span className={`price ${solde >= price ? '' : 'short'}`}>{solde < price && <IconLock style={{ width: 12 }} />}{fmtPts(price)}</span>}

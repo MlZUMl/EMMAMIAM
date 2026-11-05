@@ -1,15 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useApp } from '../app/state'
 import { Chips, Segmented, Sheet, TopBar, Progress } from '../ui/components'
 import { navigate } from '../lib/router'
-import { AvatarArt, CHARACTERS, STYLES, OUTFITS } from '../art/Avatar'
-import { CompanionArt, COMPANION_COLORS } from '../art/Companion'
-import { SceneArt } from '../art/Scene'
-import { ACCESSORIES, ITEMS, UNIVERSE_STARTS, itemDef, badgeDef, zoneOrder, LEVEL_ITEMS } from '../domain/catalog'
+import { AvatarArt } from '../art/Avatar'
+import { CompanionArt } from '../art/Companion'
+import { SceneArt, AVATAR_BOX, MASCOTTE_BOX } from '../art/Scene'
+import { artUrl } from '../art/images'
+import { ACCESSORIES, CATEGORIES, ITEMS, REFUGE, itemDef, badgeDef, slotLabel, LEVEL_ITEMS, type ItemDef } from '../domain/catalog'
+import { candidatesFor, clearSlot, compatibleSlots, migrateEquipped, palierFor, placeItem, placed, prochainPalier, slotOfItem } from '../domain/refuge'
 import { levelFor, owned, totalXp } from '../domain/rewards'
-import { activeWeeks } from '../domain/discipline'
 import { SPECIES, memoryOf } from '../domain/companion'
-import { missionDef } from '../domain/missions'
 import { IconLock, IconUser } from '../ui/icons'
 import type { Species } from '../data/types'
 import { PointsPill, ShopPanel } from './Shop'
@@ -32,147 +32,150 @@ export function Universe({ query }: { query: URLSearchParams }) {
 
 function AvatarCreate() {
   const { actions } = useApp()
-  const [character, setCharacter] = useState<string>('aube')
-  const [style, setStyle] = useState<string>('longs')
-  const [outfit, setOutfit] = useState<string>('jogging')
-  const [universe, setUniverse] = useState<string>('chambre')
+  // Un seul personnage en aquarelle et un seul lieu, le Refuge : l'apparence vient des tenues et coiffures de la boutique
+  const character = 'aube', style = 'longs', outfit = 'jogging'
   const [name, setName] = useState('')
   return (
     <>
       <section className="card tint">
         <h2>Crée ton personnage</h2>
-        <p className="muted">Ton univers évoluera avec tes habitudes réelles : chaque séance, chaque verre d'eau, chaque reprise y laisse une trace.</p>
+        <p className="muted">Voici ton refuge : une cabane dans un grand cerisier. Il s'enrichira avec tes habitudes réelles : chaque séance, chaque verre d'eau, chaque reprise y laisse une trace.</p>
         <div style={{ display: 'grid', placeItems: 'center' }}><AvatarArt character={character} style={style} outfit={outfit} size={170} /></div>
       </section>
       <section className="card">
-        <strong>Personnage</strong>
-        <Chips label="Personnage" value={character} onChange={v => v && setCharacter(v)} options={CHARACTERS.map(c => ({ id: c.id, label: c.label }))} />
-        <strong>Style</strong>
-        <Chips label="Style" value={style} onChange={v => v && setStyle(v)} options={STYLES.map(s => ({ id: s.id, label: s.label }))} />
-        <strong>Tenue de départ</strong>
-        <Chips label="Tenue" value={outfit} onChange={v => v && setOutfit(v)} options={OUTFITS.map(o => ({ id: o.id, label: o.label }))} />
-        <strong>Univers de départ</strong>
-        <Chips label="Univers" value={universe} onChange={v => v && setUniverse(v)} options={UNIVERSE_STARTS.map(u => ({ id: u.id, label: u.label }))} />
         <label className="field">Prénom de ton personnage <span className="hint">Facultatif</span><input className="input" value={name} onChange={e => setName(e.target.value)} /></label>
       </section>
-      <button className="btn primary block" onClick={() => actions.createAvatar({ character, style, outfit, universe, name: name.trim() || null })}>Entrer dans mon univers</button>
+      <button className="btn primary block" onClick={() => actions.createAvatar({ character, style, outfit, universe: REFUGE, name: name.trim() || null })}>Entrer dans mon univers</button>
     </>
   )
 }
 
+/** Image d'un objet du Refuge (aquarelle), ou son emoji tant qu'elle n'existe pas. */
+function Objet({ item, size, locked = false }: { item: ItemDef; size: number; locked?: boolean }) {
+  const src = artUrl(`objet-${item.id}`)
+  const style = locked ? { filter: 'grayscale(1) opacity(.42)' } : undefined
+  return src
+    ? <img src={src} alt="" width={size} height={size} style={{ objectFit: 'contain', ...style }} />
+    : <span className="em" aria-hidden="true" style={{ fontSize: size * 0.7, lineHeight: 1, ...style }}>{item.emoji}</span>
+}
+
 function World() {
-  const { snap, actions, today } = useApp()
+  const { snap, actions } = useApp()
   const avatar = snap.avatar_profiles[0]
   const comp = snap.companion_profiles[0]
-  const zones = zoneOrder(avatar.universe)
-  const ownedZones = owned(snap, 'zone')
   const ownedItems = owned(snap, 'item')
-  const [zoneId, setZoneId] = useState(zones[0].id)
   const [slot, setSlot] = useState<string | null>(null)
+  const [fiche, setFiche] = useState<string | null>(null)
   const [edit, setEdit] = useState(false)
   const [style, setStyle] = useState(false)
-  const zone = zones.find(z => z.id === zoneId)!
-  const unlocked = ownedZones.has(zone.id)
   const xp = totalXp(snap)
   const lvl = levelFor(xp)
-  const weeks = activeWeeks(snap)
-  const mission = snap.user_missions.find(m => m.day === today)
-  const nextRewards = ITEMS.filter(i => !i.mystery && !ownedItems.has(i.id)).slice(0, 3)
+  const palier = palierFor(lvl.level)
+  const suivant = prochainPalier(lvl.level)
+  const poses = placed(avatar.equipped)
   const nextLevelItem = LEVEL_ITEMS[lvl.level + 1] ? itemDef(LEVEL_ITEMS[lvl.level + 1]) : undefined
-
-  const equip = (s: string, itemId: string | null) => {
-    const key = `${zone.id}:${s}`
-    const equipped = { ...avatar.equipped }
-    if (itemId) {
-      for (const k of Object.keys(equipped)) if (equipped[k] === itemId) delete equipped[k] // un objet à un seul endroit
-      equipped[key] = itemId
-    } else delete equipped[key]
-    actions.updateAvatar({ equipped })
-  }
-  const candidates = (s: string) => ITEMS.filter(i => i.zone === zone.id && i.slot === s && ownedItems.has(i.id))
   const mysteryOwned = snap.reward_grants.filter(g => g.kind === 'item' && itemDef(g.ref.split('~')[0])?.mystery)
+  const visibles = ITEMS.filter(i => !i.mystery || ownedItems.has(i.id))
+
+  // Reprise des anciennes pièces : chaque objet déjà posé trouve sa place dans le Refuge (une seule fois)
+  useEffect(() => {
+    if (migrateEquipped(avatar.equipped) !== avatar.equipped) actions.updateAvatar(c => ({ equipped: migrateEquipped(c.equipped) }))
+  }, [avatar.equipped, actions])
+
+  // Poser, déplacer ou retirer : toujours à partir de la version enregistrée la plus récente (voir updateAvatar)
+  const poser = (slotId: string, itemId: string | null) =>
+    actions.updateAvatar(c => ({ equipped: itemId ? placeItem(c.equipped, itemId, slotId) : clearSlot(c.equipped, slotId) }))
 
   return (
     <>
-      <div className="segmented" role="tablist" aria-label="Zones">
-        {zones.map(z => (
-          <button key={z.id} role="tab" aria-selected={zoneId === z.id} className={zoneId === z.id ? 'on' : ''} onClick={() => setZoneId(z.id)}>
-            {!ownedZones.has(z.id) && <IconLock style={{ width: 14, display: 'inline', verticalAlign: '-2px', marginRight: 4 }} />}{z.name}
-          </button>
-        ))}
-      </div>
-      {unlocked ? (
-        <div className="scene">
-          <SceneArt zone={zone.id} equipped={avatar.equipped} slots={zone.slots} editable={edit} onSlot={s => setSlot(s)}
-            avatar={<g>{(() => { const l = avatarLook(avatar); return <AvatarArt character={avatar.character} style={l.style} outfit={l.outfit} extras={l.extras} size={110} x={150} y={122} /> })()}</g>}
-            companion={comp ? <foreignObject x="210" y="178" width="70" height="70"><CompanionArt species={comp.species} expression="content" color={comp.color} accessories={comp.accessories} size={70} /></foreignObject> : null} />
-          <div className="row between" style={{ padding: '10px 14px' }}>
-            <span className="small muted">{edit ? 'Touche un emplacement pour y poser un objet.' : `${zone.name} — ${zone.description}`}</span>
-            <button className={`btn sm ${edit ? 'primary' : 'secondary'}`} onClick={() => setEdit(e => !e)}>{edit ? 'Terminé' : 'Décorer'}</button>
-          </div>
+      <div className="scene">
+        <SceneArt equipped={avatar.equipped} level={lvl.level} editable={edit} onSlot={s => setSlot(s)} selected={slot}
+          avatar={<g>{(() => { const l = avatarLook(avatar); return <AvatarArt character={avatar.character} style={l.style} outfit={l.outfit} extras={l.extras} size={AVATAR_BOX.size} x={AVATAR_BOX.x} y={AVATAR_BOX.y} /> })()}</g>}
+          companion={comp ? <foreignObject x={MASCOTTE_BOX.x} y={MASCOTTE_BOX.y} width={MASCOTTE_BOX.size} height={MASCOTTE_BOX.size}><CompanionArt species={comp.species} expression="content" color={comp.color} accessories={comp.accessories} size={MASCOTTE_BOX.size} /></foreignObject> : null} />
+        <div className="row between" style={{ padding: '10px 14px' }}>
+          <span className="small muted">{edit ? 'Touche un emplacement pour y poser un objet.' : `Le refuge de ${avatar.name ?? 'ton personnage'} — ${palier.nom}`}</span>
+          <button className={`btn sm ${edit ? 'primary' : 'secondary'}`} onClick={() => setEdit(e => !e)}>{edit ? 'Terminé' : 'Décorer'}</button>
         </div>
-      ) : (
-        <section className="card flat celebrate">
-          <IconLock style={{ width: 32, color: 'var(--prune)' }} />
-          <h3>{zone.name}</h3>
-          <p className="muted">{zone.description} Elle s'ouvre après {zone.weeksNeeded} semaines actives (au moins 3 jours avec une action dans la semaine). Tu en es à {weeks}.</p>
-          <Progress value={weeks / zone.weeksNeeded} label="Progression vers la zone" />
-        </section>
-      )}
+      </div>
 
       <section className="card tint">
-        <div className="row between"><div><div className="kicker">Niveau {lvl.level}{avatar.name ? ` · ${avatar.name}` : ''}</div><strong>{xp - lvl.current} / {lvl.next - lvl.current} points vers le niveau {lvl.level + 1}</strong></div>
+        <div className="row between"><div><div className="kicker">Niveau {lvl.level}{avatar.name ? ` · ${avatar.name}` : ''} · {palier.nom}</div><strong>{xp - lvl.current} / {lvl.next - lvl.current} points vers le niveau {lvl.level + 1}</strong></div>
           <button className="btn ghost sm" onClick={() => setStyle(true)}>Tenue</button></div>
         <Progress value={lvl.progress} label="Progression de niveau" />
         {nextLevelItem && <p className="muted small">Au niveau {lvl.level + 1} : {nextLevelItem.emoji} {nextLevelItem.name}</p>}
+        {suivant && <p className="muted small">Au niveau {suivant.niveau}, ton refuge deviendra « {suivant.nom} » : de nouvelles lueurs apparaîtront dans le décor.</p>}
         <p className="muted small">Les points viennent de la régularité, des reprises et de la découverte — jamais de la balance.</p>
       </section>
 
-      {mission && mission.status !== 'terminee' && mission.status !== 'ignoree' && (
-        <section className="card flat">
-          <div className="kicker">Mission qui peut faire évoluer ton univers</div>
-          <strong>{mission.mystery && mission.status === 'disponible' ? 'Mission mystère du jour' : missionDef(mission.mission_key)?.name}</strong>
-          <button className="link-btn" onClick={() => navigate('/')}>Voir sur l'accueil</button>
-        </section>
-      )}
-
       <section className="card">
-        <h2>Prochaines récompenses</h2>
-        <div className="item-grid">
-          {nextRewards.map(i => <div key={i.id} className="item-card locked"><span className="em" aria-hidden="true">{i.emoji}</span>{i.name}<span className="muted" style={{ fontSize: '.7rem' }}>{i.how}</span></div>)}
-        </div>
-      </section>
-
-      <section className="card">
-        <h2>Mes objets ({ownedItems.size})</h2>
-        <div className="item-grid">
-          {ITEMS.filter(i => ownedItems.has(i.id)).map(i => <div key={i.id} className="item-card"><span className="em" aria-hidden="true">{i.emoji}</span>{i.name}</div>)}
-          {!ownedItems.size && <p className="muted small">Ta première séance t'offrira ton premier objet.</p>}
-        </div>
+        <h2>Ma collection ({ownedItems.size} / {ITEMS.length})</h2>
+        <p className="muted small">Les objets en couleur sont à toi : touche-en un pour le poser dans ton refuge. Les objets grisés restent à débloquer.</p>
+        {CATEGORIES.map(cat => {
+          const dedans = visibles.filter(i => i.categorie === cat.id)
+          const obtenus = dedans.filter(i => ownedItems.has(i.id)).length
+          return (
+            <div key={cat.id} className="collection-cat">
+              <div className="row between"><strong>{cat.label}</strong><span className="muted small">{obtenus} / {dedans.length}</span></div>
+              <div className="item-grid">
+                {dedans.map(i => ownedItems.has(i.id)
+                  ? <button key={i.id} className={`item-card ${Object.values(poses).includes(i.id) ? 'on' : ''}`} onClick={() => setFiche(i.id)} aria-label={`${i.name}, ${Object.values(poses).includes(i.id) ? 'posé' : 'dans ta collection'}`}><Objet item={i} size={52} />{i.name}{Object.values(poses).includes(i.id) && <span className="muted" style={{ fontSize: '.68rem' }}>Posé</span>}</button>
+                  : <div key={i.id} className="item-card locked" aria-label={`${i.name}, à débloquer : ${i.how}`}><Objet item={i} size={52} locked />{i.name}<span className="muted" style={{ fontSize: '.7rem' }}>{i.how}</span></div>)}
+              </div>
+            </div>
+          )
+        })}
+        {ITEMS.some(i => i.mystery && !ownedItems.has(i.id)) && <div className="item-grid"><div className="item-card locked"><span className="em" aria-hidden="true">❔</span>Objets mystères<span className="muted" style={{ fontSize: '.7rem' }}>Missions mystères</span></div></div>}
         <p className="muted small">Objets exclusifs des missions mystères : {mysteryOwned.length} trouvé{mysteryOwned.length > 1 ? 's' : ''}. D'autres attendent d'être découverts.</p>
       </section>
 
-      <section className="card">
-        <h2>À découvrir</h2>
-        <div className="item-grid">
-          {ITEMS.filter(i => !ownedItems.has(i.id) && !i.mystery).map(i => <div key={i.id} className="item-card locked"><span className="em" aria-hidden="true">{i.emoji}</span>{i.name}<span className="muted" style={{ fontSize: '.7rem' }}>{i.how}</span></div>)}
-          {ITEMS.some(i => i.mystery && !ownedItems.has(i.id)) && <div className="item-card locked"><span className="em" aria-hidden="true">❔</span>Objets mystères<span className="muted" style={{ fontSize: '.7rem' }}>Missions mystères</span></div>}
-        </div>
-      </section>
-
       {slot && (
-        <Sheet title="Choisir un objet" onClose={() => setSlot(null)}>
-          {candidates(slot).length ? (
-            <div className="item-grid">
-              {candidates(slot).map(i => {
-                const on = avatar.equipped[`${zone.id}:${slot}`] === i.id
-                return <button key={i.id} className={`item-card ${on ? 'on' : ''}`} onClick={() => { equip(slot, on ? null : i.id); setSlot(null) }}><span className="em" aria-hidden="true">{i.emoji}</span>{i.name}</button>
-              })}
-            </div>
-          ) : <p className="muted">Aucun objet débloqué pour cet emplacement. Pistes : {ITEMS.filter(i => i.zone === zone.id && i.slot === slot && !i.mystery).map(i => `${i.name} (${i.how.toLowerCase()})`).join(', ') || 'missions mystères'}.</p>}
-          {avatar.equipped[`${zone.id}:${slot}`] && <button className="btn ghost" onClick={() => { equip(slot, null); setSlot(null) }}>Libérer l'emplacement</button>}
+        <Sheet title={`Choisir un objet · ${slotLabel(slot)}`} onClose={() => setSlot(null)}>
+          {(() => {
+            const possibles = candidatesFor(slot).filter(i => !i.mystery || ownedItems.has(i.id))
+            const mien = possibles.filter(i => ownedItems.has(i.id))
+            const verrouilles = possibles.filter(i => !ownedItems.has(i.id))
+            return (
+              <>
+                {mien.length ? (
+                  <div className="item-grid">
+                    {mien.map(i => {
+                      const ici = poses[slot] === i.id
+                      const ailleurs = Object.entries(poses).find(([s, id]) => id === i.id && s !== slot)?.[0]
+                      return <button key={i.id} className={`item-card ${ici ? 'on' : ''}`} onClick={() => { poser(slot, ici ? null : i.id); setSlot(null) }}><Objet item={i} size={52} />{i.name}{ailleurs && <span className="muted" style={{ fontSize: '.68rem' }}>Posé : {slotLabel(ailleurs)}</span>}</button>
+                    })}
+                  </div>
+                ) : <p className="muted">Aucun objet débloqué pour cet emplacement.</p>}
+                {verrouilles.length > 0 && (
+                  <>
+                    <div className="kicker">À débloquer</div>
+                    <div className="item-grid">{verrouilles.map(i => <div key={i.id} className="item-card locked"><Objet item={i} size={52} locked />{i.name}<span className="muted" style={{ fontSize: '.7rem' }}>{i.how}</span></div>)}</div>
+                  </>
+                )}
+              </>
+            )
+          })()}
+          {poses[slot] && <button className="btn ghost" onClick={() => { poser(slot, null); setSlot(null) }}>Libérer l'emplacement</button>}
         </Sheet>
       )}
+
+      {fiche && (() => {
+        const item = itemDef(fiche)!
+        const ou = slotOfItem(avatar.equipped, item.id)
+        return (
+          <Sheet title={item.name} onClose={() => setFiche(null)}>
+            <div style={{ display: 'grid', placeItems: 'center' }}><Objet item={item} size={110} /></div>
+            <p className="muted small" style={{ textAlign: 'center' }}>{ou ? `Posé : ${slotLabel(ou)}` : 'Dans ta collection'} · {item.how}</p>
+            <div className="kicker">{ou ? 'Déplacer vers' : 'Poser dans'}</div>
+            <div className="chips">
+              {compatibleSlots(item).map(s => {
+                const occupant = poses[s.id] && poses[s.id] !== item.id ? itemDef(poses[s.id])?.name : null
+                return <button key={s.id} className={`chip ${ou === s.id ? 'on' : ''}`} aria-pressed={ou === s.id} onClick={() => { poser(s.id, item.id); setFiche(null) }}>{slotLabel(s.id)}{occupant ? ` (remplace ${occupant})` : ''}</button>
+              })}
+            </div>
+            {ou && <button className="btn ghost" onClick={() => { poser(ou, null); setFiche(null) }}>Retirer du refuge</button>}
+          </Sheet>
+        )
+      })()}
       {style && <StyleSheet onClose={() => setStyle(false)} />}
     </>
   )
@@ -182,14 +185,9 @@ function StyleSheet({ onClose }: { onClose: () => void }) {
   const { snap, actions } = useApp()
   const a = snap.avatar_profiles[0]
   const look = avatarLook(a)
-  const without = (k: string) => { const e = { ...a.equipped }; delete e[k]; return e }
   return (
     <Sheet title="Mon personnage" onClose={onClose}>
       <div style={{ display: 'grid', placeItems: 'center' }}><AvatarArt character={a.character} style={look.style} outfit={look.outfit} extras={look.extras} size={150} /></div>
-      <Chips label="Personnage" value={a.character} onChange={v => v && actions.updateAvatar({ character: v })} options={CHARACTERS.map(c => ({ id: c.id, label: c.label }))} />
-      <Chips label="Style" value={a.equipped['perso:coiffure'] ? null : a.style} onChange={v => v && actions.updateAvatar({ style: v, equipped: without('perso:coiffure') })} options={STYLES.map(s => ({ id: s.id, label: s.label }))} />
-      <Chips label="Tenue" value={a.equipped['perso:tenue'] ? null : a.outfit} onChange={v => v && actions.updateAvatar({ outfit: v, equipped: without('perso:tenue') })} options={OUTFITS.map(o => ({ id: o.id, label: o.label }))} />
-      {(a.equipped['perso:coiffure'] || a.equipped['perso:tenue']) && <p className="muted small">Un objet de la boutique est porté : choisir un style ou une tenue de départ le retire (il reste dans ta garde-robe).</p>}
       <button className="btn secondary" onClick={() => { onClose(); navigate('/univers?onglet=boutique', true) }}>👗 Plus de tenues et de coiffures : la boutique</button>
       <label className="field">Prénom<input className="input" defaultValue={a.name ?? ''} onBlur={e => actions.updateAvatar({ name: e.target.value.trim() || null })} /></label>
     </Sheet>
@@ -213,8 +211,6 @@ function CompanionPanel() {
         <label className="field">Prénom<input className="input" defaultValue={comp.name} onBlur={e => e.target.value.trim() && actions.updateCompanion({ name: e.target.value.trim() })} /></label>
         <strong>Espèce</strong>
         <Chips label="Espèce" value={comp.species} onChange={(v: Species | null) => v && actions.updateCompanion({ species: v })} options={SPECIES.map(s => ({ id: s.id, label: s.label }))} />
-        <strong>Couleur</strong>
-        <Chips label="Couleur" value={comp.color} onChange={v => v && actions.updateCompanion({ color: v })} options={Object.entries(COMPANION_COLORS).map(([id, c]) => ({ id, label: c.label }))} />
         <strong>Accessoires</strong>
         <div className="item-grid">
           {ACCESSORIES.map(a => {

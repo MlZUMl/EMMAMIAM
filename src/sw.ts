@@ -14,6 +14,7 @@ self.addEventListener('install', () => { self.skipWaiting() })
 // seulement si le serveur d'images l'autorise ; sinon le cache du navigateur s'en charge).
 const DATA_CACHE = 'elan-donnees-v1'
 const PHOTO_CACHE = 'elan-photos-v1'
+const MASCOTTE_CACHE = 'elan-mascottes-v1'
 self.addEventListener('fetch', event => {
   const req = event.request
   if (req.method !== 'GET') return
@@ -28,6 +29,19 @@ self.addEventListener('fetch', event => {
       } catch {
         return (await cache.match(url.pathname)) ?? Response.error()
       }
+    })())
+    return
+  }
+  // Mascotte portant un objet de la boutique (110 images, une seule espèce sert) : chargée à la demande,
+  // puis gardée pour fonctionner hors ligne. Les images de base sont préchargées avec l'appli.
+  if (url.origin === self.location.origin && /\/art\/compagnon-[a-z]+-[\w-]+\.webp$/.test(url.pathname)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(MASCOTTE_CACHE)
+      const hit = await cache.match(req)
+      if (hit) return hit
+      const res = await fetch(req)
+      if (res.ok) await cache.put(req, res.clone())
+      return res
     })())
     return
   }

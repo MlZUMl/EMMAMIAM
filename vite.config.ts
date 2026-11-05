@@ -17,7 +17,8 @@ export default defineConfig({
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,png,svg,webp,woff2,webmanifest}'],
         // Polices : seuls les jeux latins servent en français ; les autres se chargent à la demande.
-        globIgnores: ['**/*cyrillic*', '**/*vietnamese*', '**/*greek*'],
+        // Mascottes avec un objet porté : chargées à la demande (voir src/sw.ts), pas préchargées.
+        globIgnores: ['**/*cyrillic*', '**/*vietnamese*', '**/*greek*', '**/art/compagnon-*-*.webp'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       manifest: {

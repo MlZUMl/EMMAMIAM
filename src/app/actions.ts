@@ -358,7 +358,16 @@ export function createActions(store: DataStore) {
     async createAvatar(a: Pick<AvatarProfile, 'character' | 'style' | 'outfit' | 'universe' | 'name'>) {
       return store.commit([put('avatar_profiles', { id: 'avatar', ...a, equipped: {}, zones: {} })])
     },
-    async updateAvatar(patch: Partial<AvatarProfile>) { return store.commit([put('avatar_profiles', { ...s().avatar_profiles[0], ...patch })], { derive: false }) },
+    /**
+     * Met à jour l'avatar. Avec une fonction, la modification part de la version la plus récente en mémoire,
+     * pas de celle affichée à l'écran (qui n'est rafraîchie qu'une fois l'écriture terminée) : deux poses
+     * d'objets rapprochées sur un téléphone lent ne s'écrasent plus.
+     */
+    async updateAvatar(patch: Partial<AvatarProfile> | ((current: AvatarProfile) => Partial<AvatarProfile>)) {
+      const current = s().avatar_profiles[0]
+      const next = typeof patch === 'function' ? patch(current) : patch
+      return store.commit([put('avatar_profiles', { ...current, ...next })], { derive: false })
+    },
     async updateCompanion(patch: Partial<CompanionProfile>) { return store.commit([put('companion_profiles', { ...s().companion_profiles[0], ...patch })], { derive: false }) },
     async recordInteraction(context: string, messageKey: string, expression: string) {
       return store.commit([put('companion_interactions', { id: uid(), at: nowIso(), context, message_key: messageKey, expression })], { derive: false })

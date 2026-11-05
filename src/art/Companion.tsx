@@ -1,8 +1,8 @@
 // Illustrations vectorielles du compagnon : 5 espèces × 8 expressions × accessoires.
-// Remplaçables par des images (config.js -> art["compagnon-<espece>"]).
+// Remplacées par l'aquarelle de l'espèce (art/compagnon-<espece>.webp), ou de son dernier objet de boutique porté.
 import type { Species } from '../data/types'
 import type { Expression } from '../domain/companion'
-import { getConfig } from '../lib/config'
+import { companionUrl } from './images'
 
 export const COMPANION_COLORS: Record<string, { fill: string; shade: string; label: string }> = {
   rose: { fill: '#f3c6cd', shade: '#e3a6b0', label: 'Rose poudré' },
@@ -185,8 +185,9 @@ export function Cosmetics({ species, list, layer }: { species: Species; list: st
 export function CompanionArt({ species, expression = 'content', color = 'rose', accessories = [], size = 96, className }: {
   species: Species; expression?: Expression; color?: string; accessories?: string[]; size?: number; className?: string
 }) {
-  const override = getConfig().art?.[`compagnon-${species}`]
-  if (override) return <img src={override} alt="" width={size} height={size} className={className} style={{ objectFit: 'contain' }} />
+  // Une image par objet de boutique porté ; les accessoires gagnés (nœud, cape…) ne sont dessinés qu'en vectoriel.
+  const override = companionUrl(species, accessories)
+  if (override) return <img src={override} alt={`Compagnon ${species}`} width={size} height={size} className={className} style={{ objectFit: 'contain' }} />
   const c = COMPANION_COLORS[color] ?? COMPANION_COLORS.rose
   const faceY = species === 'lapin' ? 66 : species === 'nuage' ? 62 : species === 'creature' ? 66 : species === 'pousse' ? 60 : 62
   return (

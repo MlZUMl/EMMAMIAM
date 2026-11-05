@@ -30,11 +30,12 @@ describe('récompenses', () => {
 
   it("une séance terminée donne XP, objet et badge — une seule fois, même si l'on recalcule", () => {
     const s = baseSnap()
-    s.avatar_profiles = [{ id: 'avatar', character: 'a', style: 's', outfit: 'o', universe: 'chambre', name: null, equipped: {}, zones: {}, created_at: '', updated_at: '' }]
+    s.avatar_profiles = [{ id: 'avatar', character: 'a', style: 's', outfit: 'o', universe: 'refuge', name: null, equipped: {}, zones: {}, created_at: '', updated_at: '' }]
     s.workouts = [workout('2026-10-20', 20)]
     const first = applyDerive(s, NOW)
     const ids = first.added.map(g => g.id)
-    expect(ids).toEqual(expect.arrayContaining(['xp:seance:' + s.workouts[0].id, 'xp:rdv:2026-10-20', 'item:tapis-yoga', 'badge:premier-pas', 'zone:chambre']))
+    expect(ids).toEqual(expect.arrayContaining(['xp:seance:' + s.workouts[0].id, 'xp:rdv:2026-10-20', 'item:tapis-yoga', 'badge:premier-pas']))
+    expect(ids.some(id => id.startsWith('zone:')), 'un seul lieu : plus de zones à débloquer').toBe(false)
     const second = applyDerive(first.snap, NOW)
     expect(second.added).toHaveLength(0)
     // Rejouer la même séance (même id) ne redonne rien
@@ -44,7 +45,7 @@ describe('récompenses', () => {
 
   it("l'avatar évolue : un objectif d'eau atteint fait apparaître une plante", () => {
     const s = baseSnap()
-    s.avatar_profiles = [{ id: 'avatar', character: 'a', style: 's', outfit: 'o', universe: 'chambre', name: null, equipped: {}, zones: {}, created_at: '', updated_at: '' }]
+    s.avatar_profiles = [{ id: 'avatar', character: 'a', style: 's', outfit: 'o', universe: 'refuge', name: null, equipped: {}, zones: {}, created_at: '', updated_at: '' }]
     s.water_logs = Array.from({ length: 8 }, (_, i) => ({ id: 'e' + i, day: '2026-10-20', at: '2026-10-20T0' + (i + 1) + ':00:00', glasses: 1, created_at: '', updated_at: '' }))
     const { added } = applyDerive(s, NOW)
     expect(added.map(g => g.id)).toContain('item:pothos')

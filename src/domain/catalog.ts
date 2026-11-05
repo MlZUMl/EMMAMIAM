@@ -1,74 +1,97 @@
-// Catalogues : zones et objets de l'univers, accessoires du compagnon, badges.
+// Catalogues : le Refuge (lieu unique) et ses objets, accessoires du compagnon, badges.
 // Les conditions de déblocage sont vérifiées dans rewards.ts à partir des données enregistrées.
 
-export interface ZoneDef { id: string; name: string; description: string; slots: string[]; weeksNeeded: number }
+/**
+ * Le Refuge : l'univers est un lieu unique (une cabane-terrasse dans un grand cerisier). Les objets se rangent par
+ * catégorie ; chaque emplacement du lieu accepte une catégorie. L'objet débloqué se pose dans n'importe quel
+ * emplacement de sa catégorie. Les positions à l'écran sont dans src/art/Scene.tsx.
+ */
+export type Categorie = 'mur' | 'etagere' | 'table' | 'sol' | 'plante' | 'jardin' | 'ciel' | 'rambarde'
 
-export const ZONES: ZoneDef[] = [
-  { id: 'chambre', name: 'La chambre', description: 'Un petit nid douillet pour commencer.', slots: ['mur', 'fenetre', 'etagere', 'sol', 'lit', 'table'], weeksNeeded: 0 },
-  { id: 'jardin', name: 'Le jardin', description: 'Il pousse au rythme de tes semaines actives.', slots: ['massif', 'arbre', 'allee', 'banc', 'eau'], weeksNeeded: 2 },
-  { id: 'bibliotheque', name: 'La bibliothèque', description: 'Un coin calme pour tes souvenirs et tes lectures.', slots: ['rayon', 'fauteuil', 'lampe', 'tapis'], weeksNeeded: 4 },
-  { id: 'atelier', name: "L'atelier", description: 'Là où tes habitudes deviennent des créations.', slots: ['plan', 'mur', 'panier', 'plante'], weeksNeeded: 6 },
-  { id: 'balcon', name: 'Le balcon étoilé', description: 'Pour regarder le chemin parcouru.', slots: ['ciel', 'rambarde', 'coussin'], weeksNeeded: 8 },
+export const CATEGORIES: { id: Categorie; label: string; hint: string }[] = [
+  { id: 'mur', label: 'Au mur et sur le tronc', hint: 'Cadres, horloge, rideaux' },
+  { id: 'etagere', label: "Sur l'étagère", hint: 'Petits objets' },
+  { id: 'table', label: 'Sur la table', hint: 'Lampe, tasse, carnet' },
+  { id: 'sol', label: 'Sur la terrasse', hint: 'Tapis, fauteuil, coussins' },
+  { id: 'plante', label: 'Les grandes plantes', hint: 'Monstera, bonsaï' },
+  { id: 'jardin', label: "Au pied de l'arbre", hint: 'Fontaine, fleurs, lanterne' },
+  { id: 'ciel', label: 'Dans le ciel', hint: 'Étoiles, guirlandes, arc-en-ciel' },
+  { id: 'rambarde', label: 'Sur la rambarde', hint: 'Télescope, souvenirs' },
 ]
 
-export const UNIVERSE_STARTS = [
-  { id: 'chambre', label: 'Chambre cosy' },
-  { id: 'jardin', label: 'Petit jardin' },
-  { id: 'bibliotheque', label: 'Bibliothèque' },
-] as const
-
-/** Ordre des zones pour une univers de départ donné : la zone choisie d'abord, puis les autres. */
-export function zoneOrder(start: string): ZoneDef[] {
-  const first = ZONES.find(z => z.id === start) ?? ZONES[0]
-  const rest = ZONES.filter(z => z.id !== first.id)
-  return [{ ...first, weeksNeeded: 0 }, ...rest.map((z, i) => ({ ...z, weeksNeeded: (i + 1) * 2 }))]
+export interface SlotDef { id: string; categorie: Categorie }
+/** Les emplacements du Refuge (leur position à l'écran est dans src/art/Scene.tsx). */
+export const SLOTS: SlotDef[] = [
+  { id: 'mur-1', categorie: 'mur' }, { id: 'mur-2', categorie: 'mur' }, { id: 'mur-3', categorie: 'mur' },
+  { id: 'etagere-1', categorie: 'etagere' }, { id: 'etagere-2', categorie: 'etagere' },
+  { id: 'table-1', categorie: 'table' },
+  { id: 'sol-1', categorie: 'sol' },
+  { id: 'plante-1', categorie: 'plante' },
+  { id: 'jardin-1', categorie: 'jardin' }, { id: 'jardin-2', categorie: 'jardin' },
+  { id: 'ciel-1', categorie: 'ciel' }, { id: 'ciel-2', categorie: 'ciel' },
+  { id: 'rambarde-1', categorie: 'rambarde' },
+]
+export const REFUGE = 'refuge'
+/** Nom d'un emplacement pour l'écran : « Sur la table 2 », « Au mur 1 »… */
+export function slotLabel(slotId: string): string {
+  const s = SLOTS.find(x => x.id === slotId)
+  if (!s) return slotId
+  const cat = CATEGORIES.find(c => c.id === s.categorie)?.label ?? s.categorie
+  const memes = SLOTS.filter(x => x.categorie === s.categorie)
+  return memes.length > 1 ? `${cat} ${memes.indexOf(s) + 1}` : cat
 }
+export const slotDef = (id: string) => SLOTS.find(s => s.id === id)
+export const slotsOf = (c: Categorie) => SLOTS.filter(s => s.categorie === c)
 
-export interface ItemDef { id: string; name: string; zone: string; slot: string; how: string; emoji: string; mystery?: boolean }
+/** Taille d'affichage d'un objet dans la scène : hauteur en unités de la scène (360 × 260). */
+export type Taille = 'S' | 'M' | 'L' | 'XL'
+export const TAILLES: Record<Taille, number> = { S: 30, M: 44, L: 64, XL: 104 }
+
+export interface ItemDef { id: string; name: string; categorie: Categorie; taille: Taille; how: string; emoji: string; mystery?: boolean }
 
 export const ITEMS: ItemDef[] = [
-  { id: 'lampe-douce', name: 'Lampe douce', zone: 'chambre', slot: 'table', how: 'Offerte à l\'arrivée', emoji: '🪔' },
-  { id: 'tapis-rond', name: 'Tapis rond', zone: 'chambre', slot: 'sol', how: 'Offert à l\'arrivée', emoji: '🟣' },
-  { id: 'tapis-yoga', name: 'Tapis de yoga', zone: 'chambre', slot: 'sol', how: 'Ta première séance', emoji: '🧘‍♀️' },
-  { id: 'radio', name: 'Radio rétro', zone: 'chambre', slot: 'etagere', how: '5 séances terminées', emoji: '📻' },
-  { id: 'horloge', name: 'Horloge de 17 h 15', zone: 'chambre', slot: 'mur', how: '10 rendez-vous honorés', emoji: '🕰️' },
-  { id: 'pothos', name: 'Pothos', zone: 'chambre', slot: 'fenetre', how: 'Ton premier objectif d\'eau atteint', emoji: '🪴' },
-  { id: 'monstera', name: 'Monstera', zone: 'atelier', slot: 'plante', how: 'Objectif d\'eau atteint 7 jours', emoji: '🌿' },
-  { id: 'fontaine', name: 'Petite fontaine', zone: 'jardin', slot: 'eau', how: 'Objectif d\'eau atteint 21 jours', emoji: '⛲' },
-  { id: 'panier-fruits', name: 'Panier de fruits', zone: 'atelier', slot: 'panier', how: 'Repas notés 3 jours', emoji: '🧺' },
-  { id: 'livre-recettes', name: 'Livre de cuisine', zone: 'bibliotheque', slot: 'rayon', how: 'Repas notés 14 jours', emoji: '📖' },
-  { id: 'epices', name: 'Étagère à épices', zone: 'atelier', slot: 'mur', how: 'Repas notés 30 jours', emoji: '🫙' },
-  { id: 'carnet', name: 'Carnet fleuri', zone: 'chambre', slot: 'lit', how: 'Ton premier check-in', emoji: '📔' },
-  { id: 'tasse', name: 'Tasse fumante', zone: 'bibliotheque', slot: 'lampe', how: '10 check-ins', emoji: '☕' },
-  { id: 'boite-souvenirs', name: 'Boîte à souvenirs', zone: 'bibliotheque', slot: 'tapis', how: 'Ta première capsule temporelle', emoji: '🎁' },
-  { id: 'cadre-photo', name: 'Cadre souvenir', zone: 'chambre', slot: 'mur', how: 'Ouvrir une capsule', emoji: '🖼️' },
-  { id: 'lanterne', name: 'Lanterne du retour', zone: 'jardin', slot: 'allee', how: 'Reprendre après une pause', emoji: '🏮' },
-  { id: 'etoile', name: 'Étoile filante', zone: 'balcon', slot: 'ciel', how: 'Ta première mission', emoji: '🌠' },
-  { id: 'tableau-liege', name: 'Tableau en liège', zone: 'atelier', slot: 'plan', how: 'Ton premier bilan de semaine', emoji: '📌' },
-  { id: 'calendrier', name: 'Calendrier mural', zone: 'bibliotheque', slot: 'rayon', how: '4 bilans de semaine', emoji: '🗓️' },
-  { id: 'bouillotte', name: 'Bouillotte', zone: 'chambre', slot: 'lit', how: 'Suivre ton cycle une première fois', emoji: '🫖' },
-  { id: 'bougie', name: 'Bougie apaisante', zone: 'chambre', slot: 'etagere', how: 'Prendre un vrai jour de repos', emoji: '🕯️' },
-  { id: 'anneau', name: 'Anneau d\'aventure', zone: 'atelier', slot: 'mur', how: 'Une séance de Ring Fit', emoji: '⭕' },
-  { id: 'boule-facettes', name: 'Boule à facettes', zone: 'balcon', slot: 'ciel', how: 'Une séance de danse', emoji: '🪩' },
-  { id: 'velo-mini', name: 'Vélo miniature', zone: 'jardin', slot: 'banc', how: 'Une sortie à vélo', emoji: '🚲' },
-  { id: 'baskets', name: 'Baskets', zone: 'chambre', slot: 'sol', how: 'Une marche enregistrée', emoji: '👟' },
+  { id: 'lampe-douce', name: 'Lampe douce', categorie: 'table', taille: 'M', how: 'Offerte à l\'arrivée', emoji: '🪔' },
+  { id: 'tapis-rond', name: 'Tapis rond', categorie: 'sol', taille: 'L', how: 'Offert à l\'arrivée', emoji: '🟣' },
+  { id: 'tapis-yoga', name: 'Tapis de yoga', categorie: 'sol', taille: 'L', how: 'Ta première séance', emoji: '🧘‍♀️' },
+  { id: 'radio', name: 'Radio rétro', categorie: 'etagere', taille: 'S', how: '5 séances terminées', emoji: '📻' },
+  { id: 'horloge', name: 'Horloge de 17 h 15', categorie: 'mur', taille: 'M', how: '10 rendez-vous honorés', emoji: '🕰️' },
+  { id: 'pothos', name: 'Pothos', categorie: 'mur', taille: 'M', how: 'Ton premier objectif d\'eau atteint', emoji: '🪴' },
+  { id: 'monstera', name: 'Monstera', categorie: 'plante', taille: 'L', how: 'Objectif d\'eau atteint 7 jours', emoji: '🌿' },
+  { id: 'fontaine', name: 'Petite fontaine', categorie: 'jardin', taille: 'L', how: 'Objectif d\'eau atteint 21 jours', emoji: '⛲' },
+  { id: 'panier-fruits', name: 'Panier de fruits', categorie: 'etagere', taille: 'S', how: 'Repas notés 3 jours', emoji: '🧺' },
+  { id: 'livre-recettes', name: 'Livre de cuisine', categorie: 'etagere', taille: 'S', how: 'Repas notés 14 jours', emoji: '📖' },
+  { id: 'epices', name: 'Étagère à épices', categorie: 'mur', taille: 'M', how: 'Repas notés 30 jours', emoji: '🫙' },
+  { id: 'carnet', name: 'Carnet fleuri', categorie: 'table', taille: 'S', how: 'Ton premier check-in', emoji: '📔' },
+  { id: 'tasse', name: 'Tasse fumante', categorie: 'table', taille: 'S', how: '10 check-ins', emoji: '☕' },
+  { id: 'boite-souvenirs', name: 'Boîte à souvenirs', categorie: 'table', taille: 'S', how: 'Ta première capsule temporelle', emoji: '🎁' },
+  { id: 'cadre-photo', name: 'Cadre souvenir', categorie: 'mur', taille: 'M', how: 'Ouvrir une capsule', emoji: '🖼️' },
+  { id: 'lanterne', name: 'Lanterne du retour', categorie: 'jardin', taille: 'M', how: 'Reprendre après une pause', emoji: '🏮' },
+  { id: 'etoile', name: 'Étoile filante', categorie: 'ciel', taille: 'M', how: 'Ta première mission', emoji: '🌠' },
+  { id: 'tableau-liege', name: 'Tableau en liège', categorie: 'mur', taille: 'L', how: 'Ton premier bilan de semaine', emoji: '📌' },
+  { id: 'calendrier', name: 'Calendrier mural', categorie: 'mur', taille: 'M', how: '4 bilans de semaine', emoji: '🗓️' },
+  { id: 'bouillotte', name: 'Bouillotte', categorie: 'table', taille: 'S', how: 'Suivre ton cycle une première fois', emoji: '🫖' },
+  { id: 'bougie', name: 'Bougie apaisante', categorie: 'etagere', taille: 'S', how: 'Prendre un vrai jour de repos', emoji: '🕯️' },
+  { id: 'anneau', name: 'Anneau d\'aventure', categorie: 'mur', taille: 'M', how: 'Une séance de Ring Fit', emoji: '⭕' },
+  { id: 'boule-facettes', name: 'Boule à facettes', categorie: 'ciel', taille: 'M', how: 'Une séance de danse', emoji: '🪩' },
+  { id: 'velo-mini', name: 'Vélo miniature', categorie: 'rambarde', taille: 'M', how: 'Une sortie à vélo', emoji: '🚲' },
+  { id: 'baskets', name: 'Baskets', categorie: 'sol', taille: 'S', how: 'Une marche enregistrée', emoji: '👟' },
   // Débloqués en montant de niveau
-  { id: 'coussin', name: 'Coussin moelleux', zone: 'chambre', slot: 'lit', how: 'Niveau 2', emoji: '🛋️' },
-  { id: 'rideaux', name: 'Rideaux poudrés', zone: 'chambre', slot: 'fenetre', how: 'Niveau 3', emoji: '🪟' },
-  { id: 'banc-bois', name: 'Banc en bois', zone: 'jardin', slot: 'banc', how: 'Niveau 4', emoji: '🪑' },
-  { id: 'fauteuil', name: 'Fauteuil prune', zone: 'bibliotheque', slot: 'fauteuil', how: 'Niveau 5', emoji: '💺' },
-  { id: 'cerisier', name: 'Cerisier', zone: 'jardin', slot: 'arbre', how: 'Niveau 6', emoji: '🌸' },
-  { id: 'guirlande', name: 'Guirlande lumineuse', zone: 'balcon', slot: 'rambarde', how: 'Niveau 7', emoji: '✨' },
-  { id: 'coussins-sol', name: 'Coussins de sol', zone: 'balcon', slot: 'coussin', how: 'Niveau 8', emoji: '🟪' },
-  { id: 'massif-roses', name: 'Massif de roses', zone: 'jardin', slot: 'massif', how: 'Niveau 9', emoji: '🌹' },
-  { id: 'telescope', name: 'Télescope', zone: 'balcon', slot: 'rambarde', how: 'Niveau 10', emoji: '🔭' },
+  { id: 'coussin', name: 'Coussin moelleux', categorie: 'sol', taille: 'M', how: 'Niveau 2', emoji: '🛋️' },
+  { id: 'rideaux', name: 'Rideaux poudrés', categorie: 'mur', taille: 'L', how: 'Niveau 3', emoji: '🪟' },
+  { id: 'banc-bois', name: 'Banc en bois', categorie: 'sol', taille: 'L', how: 'Niveau 4', emoji: '🪑' },
+  { id: 'fauteuil', name: 'Fauteuil prune', categorie: 'sol', taille: 'L', how: 'Niveau 5', emoji: '💺' },
+  { id: 'cerisier', name: 'Cerisier', categorie: 'jardin', taille: 'XL', how: 'Niveau 6', emoji: '🌸' },
+  { id: 'guirlande', name: 'Guirlande lumineuse', categorie: 'ciel', taille: 'L', how: 'Niveau 7', emoji: '✨' },
+  { id: 'coussins-sol', name: 'Coussins de sol', categorie: 'sol', taille: 'M', how: 'Niveau 8', emoji: '🟪' },
+  { id: 'massif-roses', name: 'Massif de roses', categorie: 'jardin', taille: 'M', how: 'Niveau 9', emoji: '🌹' },
+  { id: 'telescope', name: 'Télescope', categorie: 'rambarde', taille: 'L', how: 'Niveau 10', emoji: '🔭' },
   // Exclusifs des missions mystères (dans cet ordre)
-  { id: 'cristal-rose', name: 'Cristal rose', zone: 'chambre', slot: 'etagere', how: 'Mission mystère', emoji: '💎', mystery: true },
-  { id: 'lune-papier', name: 'Lune en papier', zone: 'balcon', slot: 'ciel', how: 'Mission mystère', emoji: '🌙', mystery: true },
-  { id: 'theiere', name: 'Théière fleurie', zone: 'bibliotheque', slot: 'lampe', how: 'Mission mystère', emoji: '🫖', mystery: true },
-  { id: 'bonsai', name: 'Bonsaï', zone: 'atelier', slot: 'plante', how: 'Mission mystère', emoji: '🌳', mystery: true },
-  { id: 'coquillage', name: 'Coquillage nacré', zone: 'jardin', slot: 'allee', how: 'Mission mystère', emoji: '🐚', mystery: true },
-  { id: 'arc-en-ciel', name: 'Arc-en-ciel de verre', zone: 'balcon', slot: 'ciel', how: 'Mission mystère', emoji: '🌈', mystery: true },
+  { id: 'cristal-rose', name: 'Cristal rose', categorie: 'etagere', taille: 'S', how: 'Mission mystère', emoji: '💎', mystery: true },
+  { id: 'lune-papier', name: 'Lune en papier', categorie: 'ciel', taille: 'M', how: 'Mission mystère', emoji: '🌙', mystery: true },
+  { id: 'theiere', name: 'Théière fleurie', categorie: 'table', taille: 'S', how: 'Mission mystère', emoji: '🫖', mystery: true },
+  { id: 'bonsai', name: 'Bonsaï', categorie: 'plante', taille: 'M', how: 'Mission mystère', emoji: '🌳', mystery: true },
+  { id: 'coquillage', name: 'Coquillage nacré', categorie: 'rambarde', taille: 'S', how: 'Mission mystère', emoji: '🐚', mystery: true },
+  { id: 'arc-en-ciel', name: 'Arc-en-ciel de verre', categorie: 'ciel', taille: 'L', how: 'Mission mystère', emoji: '🌈', mystery: true },
 ]
 
 export const LEVEL_ITEMS: Record<number, string> = {

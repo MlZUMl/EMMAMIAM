@@ -9,7 +9,7 @@ import { playCue, unlockAudio, VIBRATION, type Cue } from '../lib/beep'
 import { CompanionArt } from '../art/Companion'
 import { messageFor } from '../domain/companion'
 import type { RewardGrant, WorkoutSource } from '../data/types'
-import { ACCESSORIES, ZONES, badgeDef, itemDef } from '../domain/catalog'
+import { ACCESSORIES, badgeDef, itemDef } from '../domain/catalog'
 import { currentWeight } from '../domain/nutrition'
 import { workoutKcal } from '../domain/burn'
 
@@ -195,7 +195,7 @@ export function SessionDone({ query }: { query: URLSearchParams }) {
             {xp > 0 && <div className="list-item"><span className="emoji-bubble">✨</span><div className="grow"><div className="title">+{xp} points d'expérience</div><div className="muted small">Ton univers grandit</div></div></div>}
             {points > 0 && <button className="list-item" style={{ border: 0, background: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }} onClick={() => navigate('/univers?onglet=boutique')}><span className="emoji-bubble">🪙</span><div className="grow"><div className="title">+{points} points pour la boutique</div><div className="muted small">De quoi habiller ton compagnon · voir la boutique</div></div></button>}
             {notable.map(g => {
-              const label = g.kind === 'badge' ? badgeDef(g.ref)?.name : g.kind === 'item' ? itemDef(g.ref.split('~')[0])?.name : g.kind === 'zone' ? `Nouvelle zone : ${ZONES.find(z => z.id === g.ref)?.name ?? ''}` : `Accessoire pour ton compagnon : ${ACCESSORIES.find(a => a.id === g.ref)?.name ?? ''}`
+              const label = g.kind === 'badge' ? badgeDef(g.ref)?.name : g.kind === 'item' ? itemDef(g.ref.split('~')[0])?.name : `Accessoire pour ton compagnon : ${ACCESSORIES.find(a => a.id === g.ref)?.name ?? ''}`
               const emoji = g.kind === 'badge' ? badgeDef(g.ref)?.emoji : g.kind === 'item' ? itemDef(g.ref.split('~')[0])?.emoji : '🎁'
               return <div className="list-item" key={g.id}><span className="emoji-bubble">{emoji}</span><div className="grow"><div className="title">{label}</div><div className="muted small">{g.reason}</div></div></div>
             })}

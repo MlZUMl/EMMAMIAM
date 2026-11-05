@@ -1,5 +1,7 @@
-// Avatar personnel : style « chibi » doux. Remplaçable via config.js -> art["avatar"].
-import { getConfig } from '../lib/config'
+// Avatar personnel : style « chibi » doux. Avec les aquarelles (art/avatar*.webp) : l'image de la tenue portée,
+// et un médaillon par coiffure ou accessoire de la boutique. Sans image : le dessin vectoriel.
+import { useId } from 'react'
+import { artUrl } from './images'
 
 export const CHARACTERS = [
   { id: 'aube', label: 'Aube', skin: '#f6d9c4', hair: '#7a4a32' },
@@ -95,13 +97,26 @@ function ShopExtra({ id }: { id: string }) {
 export function AvatarArt({ character = 'aube', style = 'longs', outfit = 'jogging', extras = [], size = 120, x, y }: {
   character?: string; style?: string; outfit?: string; extras?: string[]; size?: number; x?: number; y?: number
 }) {
-  const override = getConfig().art?.avatar
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
+  const override = artUrl(`avatar-${outfit}`) ?? artUrl('avatar')
+  const portraits = [style, ...extras].map(id => artUrl(`portrait-${id}`)).filter((u): u is string => !!u).slice(0, 3)
   const ch = CHARACTERS.find(c => c.id === character) ?? CHARACTERS[0]
   const shopOutfit = outfit.startsWith('av-')
   const of = OUTFITS.find(o => o.id === outfit) ?? OUTFITS[0]
   const shopHair = SHOP_HAIR.has(style)
   const hair = ch.hair
-  const inner = override ? <image href={override} x="0" y="0" width="120" height="160" /> : (
+  const inner = override ? (
+    <g>
+      <image href={override} x="0" y="0" width="120" height="160" preserveAspectRatio="xMidYMax meet" />
+      {portraits.map((src, i) => (
+        <g key={src}>
+          <clipPath id={`portrait-${uid}-${i}`}><circle cx="102" cy={20 + i * 34} r="15" /></clipPath>
+          <circle cx="102" cy={20 + i * 34} r="16.5" fill="#fff6f2" stroke="#d6ac67" strokeWidth="1.5" />
+          <image href={src} x="87" y={5 + i * 34} width="30" height="30" preserveAspectRatio="xMidYMin slice" clipPath={`url(#portrait-${uid}-${i})`} />
+        </g>
+      ))}
+    </g>
+  ) : (
     <g>
       <ellipse cx="60" cy="154" rx="30" ry="5" fill="#4a2340" opacity=".08" />
       {/* cheveux arrière */}

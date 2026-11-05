@@ -76,6 +76,85 @@ aliments personnels et noms de saisie rapide (enregistrement bloqué). Les alime
 Ciqual au statut incertain sont exclus de la recherche. Si la composition d'un produit n'est pas
 renseignée, l'appli demande de confirmer avoir vérifié l'étiquette. Ce contrôle n'a pas de réglage.
 
+## Eau
+
+Objectif en litres (2,0 L par défaut), boutons 0,15 / 0,25 / 0,33 / 0,5 L et quantité libre,
+entrées modifiables et supprimables, 5 rappels par jour (9 h 30, 11 h 30, 13 h 30, 15 h 30, 18 h 30).
+
+## Points et boutique
+
+Règles dans `src/domain/shop.ts` (testées), attribuées par le moteur de récompenses existant :
+
+| Objectif du jour (une fois par jour) | Points |
+| --- | --- |
+| Séance du jour (rendez-vous honoré, version minimale comprise) | 300 |
+| Calories notées (au moins 2 repas du journal avec des calories) | 50 |
+| Objectif d'eau atteint | 50 |
+| Bonus de régularité : 3 journées complètes dans la semaine (une fois par semaine) | 200 |
+
+- Clés déterministes (`points:seance:2026-10-20`) : impossible d'obtenir deux fois le même gain, même
+  sur deux téléphones. Les points d'un jour ne sont attribués que ce jour-là ou le lendemain.
+- Rien n'expire, rien ne se perd, pas de série à protéger.
+- Boutique (onglet Univers > Boutique) : 22 objets en 3 rayons (tenues, coiffures, accessoires) et
+  3 raretés — Commun 300–500 pts (1 à 2 jours), Rare 1 200–1 800 pts (≈ 1 semaine), Premium
+  3 500–8 000 pts (2 à 5 semaines). Collection complète ≈ 45 000 pts. Un objet rare ou premium
+  est en sélection à −20 % chaque semaine.
+- Les objets sont des calques vectoriels posés sur le compagnon : sa forme et son visage ne changent pas.
+- **Avatar (v1.4)** : 28 objets pour son propre personnage (12 tenues, 10 coiffures, 6 accessoires : lunettes,
+  boucles d'oreilles, foulard, casque audio, sac, couronne), mêmes raretés et prix. Choix « Pour qui ? » dans la
+  boutique (Mon avatar / Mon compagnon) ; un objet acheté est porté tout de suite et peut être retiré ou remis
+  depuis Univers. Dessins vectoriels dans le style de l'avatar existant.
+- Achats : table `shop_purchases` (un objet = une ligne), solde = points gagnés − prix payés.
+
+## Suivi du cycle
+
+Règles dans `src/domain/cycle.ts` (testées), écran `src/screens/Cycle.tsx` (Progrès > Cycle) et carte sur l'accueil.
+
+- Dates réelles = jours notés ; tout le reste est une prévision affichée comme telle, avec son degré de
+  certitude (faible tant qu'il y a moins de deux cycles complets ; fourchette si les cycles varient).
+- Prochaines règles = dernier début + cycle moyen (6 derniers cycles valides ; 28 jours par défaut).
+  Ovulation estimée ≈ 14 jours avant, fenêtre fertile de 7 jours. Une ovulation confirmée (test, suivi
+  médical) est notée à part. Jamais présenté comme une méthode de contraception ; affichage désactivable.
+- Statistiques façon Flo : cycle et règles précédents, variations, régularité (repères FIGO : 24–38 jours,
+  règles ≤ 8 jours, écart ≤ 7 jours), historique prévu / réel, tendance.
+- Retard : message nuancé, aucune conclusion (jamais de grossesse déduite).
+- Rapports : facultatifs, table `intimate_logs` séparée, privée (RLS), visibles uniquement dans le calendrier du cycle.
+- Rappels (désactivables) : règles dans 2 jours, retard de 5 jours, fin des règles à noter — programmés par
+  l'appli dans `scheduled_pushes` et recalés à chaque changement.
+
+## Programmes sportifs (v1.4)
+
+`src/domain/programs.ts` : 5 programmes de 4 à 8 semaines, 3 séances par semaine (Reprise en douceur, Tonifier tout
+le corps, Cardio doux et endurance, Renfo et souplesse, Objectif 30 minutes). La durée et le niveau (doux, modéré,
+tonique) augmentent semaine après semaine ; une énergie basse ramène toujours la séance au niveau doux.
+L'avancement se déduit des séances enregistrées (titre stable « Reprise · semaine 1 · séance 1 »), rien d'autre
+n'est stocké que le programme choisi et sa date de début (`profiles.settings.program`). Le rituel propose la séance
+du programme. Pendant la séance : illustration animée de chaque exercice (`src/art/ExerciseArt.tsx`, silhouettes
+vectorielles, sans animation si « réduire les animations » est activé), bip et vibration à chaque changement et
+3-2-1 avant la fin d'un exercice (son coupable dans la séance).
+
+## Progrès hors balance (v1.4)
+
+Progrès > Corps (`src/screens/Body.tsx`, règles dans `src/domain/wellbeing.ts`) :
+- **Mensurations** (table `body_measurements`) : taille, hanches, poitrine, cuisse, bras, chacune facultative ;
+  évolution depuis la première mesure et courbe du tour de taille.
+- **Sommeil** (colonnes `sleep_hours`, `sleep_quality` du check-in) et **énergie** sur 14 jours.
+- **Bilan du mois** : séances, jours de repas notés, eau, sommeil, énergie, mensurations, tendance du poids ; et
+  « ce que montrent tes données » : sommeil ↔ énergie, séance ↔ énergie du lendemain, séance ↔ sommeil, affichés
+  seulement avec au moins 3 jours de chaque côté et un écart net, formulés comme des observations.
+
+## Remplacer les illustrations
+
+Dépose tes images dans `public/art/` puis déclare-les dans `public/config.js` (clé `art`) :
+`compagnon-chat`, `avatar`, `refuge-decor`, `objet-pothos`… Aucune reconstruction n'est
+nécessaire si tu modifies directement `elan/config.js` et `elan/art/` sur GitHub.
+
+## Sources et licences des données
+
+- Table de composition nutritionnelle **Ciqual 2020**, Anses — Licence Ouverte / Open Licence Etalab 2.0.
+- **Open Food Facts** — base ouverte (ODbL), interrogée depuis le téléphone uniquement à la demande.
+- Coûts : estimation à partir de prix moyens en grande surface (2026), à titre indicatif.
+
 ## Choix faits avec l'utilisatrice
 
 - Palette G : fond blanc, vert profond `#0A3323` (texte, boutons), bleu nuit `#105666` (repères, eau),

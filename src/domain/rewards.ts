@@ -7,7 +7,7 @@ import type { GrantKind, RewardGrant, Snapshot, UserMission } from '../data/type
 import { addDays, isoWeekday, weekStart, type Day, toDay } from '../lib/dates'
 import { dayRitual, sportCommitment } from './ritual'
 import { activeWeeks, reprises, waterReached, entryMl, foodDays } from './discipline'
-import { LEVEL_ITEMS, MYSTERY_ITEMS, zoneOrder } from './catalog'
+import { LEVEL_ITEMS, MYSTERY_ITEMS } from './catalog'
 import { missionDef, missionOps } from './missions'
 import { expectedPoints } from './shop'
 
@@ -191,10 +191,6 @@ export function expectedGrants(s: Snapshot, today: Day, missions: UserMission[] 
     const item = MYSTERY_ITEMS[i % MYSTERY_ITEMS.length]
     add('item', i < MYSTERY_ITEMS.length ? item : `${item}~${Math.floor(i / MYSTERY_ITEMS.length)}`, 'Mission mystère', true)
   })
-
-  // Zones : débloquées par les semaines actives (au moins 3 jours avec une action)
-  const avatar = s.avatar_profiles[0]
-  if (avatar) for (const z of zoneOrder(avatar.universe)) add('zone', z.id, z.weeksNeeded ? `${z.weeksNeeded} semaines actives` : 'Ton univers de départ', st.activeWeeks >= z.weeksNeeded)
 
   // Accessoires du compagnon
   const companion = s.companion_profiles[0]

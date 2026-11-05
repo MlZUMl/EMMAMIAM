@@ -480,3 +480,12 @@ body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-even
   background-position: 91% 11%, 3% 34%, 95% 58%, 6% 82%; opacity: .85; }
 .week-strip .day-dot.honore { background: none; }
 .week-strip .day-dot.honore .coin { width: 30px; height: 30px; }
+
+/* Le Refuge : effets d'ambiance qui apparaissent avec le niveau (désactivés si l'appareil réduit les animations) */
+.petale { animation: petale-chute 11s linear infinite; transform-box: fill-box; }
+@keyframes petale-chute { from { transform: translate(0, 0) rotate(0deg); } to { transform: translate(var(--dx, 30px), 280px) rotate(320deg); } }
+.luciole { animation: luciole-clignote 4.5s ease-in-out infinite; }
+@keyframes luciole-clignote { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
+.etoile { animation: etoile-scintille 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes etoile-scintille { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.2); } }
+@media (prefers-reduced-motion: reduce) { .petale, .luciole, .etoile { animation: none; } .petale { display: none; } }
