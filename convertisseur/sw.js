@@ -1,6 +1,6 @@
 // Garde la page en mémoire sur le téléphone : elle s'ouvre même sans réseau
 // ou si l'hébergeur est inaccessible en Chine. Les taux, eux, sont chargés en direct.
-const CACHE = "yuan-euro-v1";
+const CACHE = "yuan-euro-v2";
 const SHELL = ["./", "index.html", "icon.png", "manifest.json"];
 
 self.addEventListener("install", e => {

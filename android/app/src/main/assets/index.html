@@ -58,6 +58,19 @@
   td{padding:7px 2px;border-bottom:1px solid var(--line)}
   td:last-child{text-align:right;color:var(--gold);font-weight:600}
   tr:last-child td{border-bottom:0}
+  .add{width:100%;margin-top:12px;background:var(--red);border:0;color:#fff;border-radius:14px;
+    padding:14px;font-size:18px;font-weight:700}
+  .add:active{transform:scale(.98)}
+  .row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);
+    font-variant-numeric:tabular-nums;font-size:17px}
+  .row .n{width:22px;color:var(--mute);font-size:13px}
+  .row .y{flex:1;color:var(--gold);font-weight:600}
+  .row .e{font-weight:600}
+  .row .x{background:none;border:0;color:var(--mute);font-size:20px;padding:2px 6px}
+  .tot{display:flex;justify-content:space-between;align-items:baseline;padding-top:12px;font-variant-numeric:tabular-nums}
+  .tot .lab{font-size:13px;color:var(--mute)}
+  .tot .big2{font-size:30px;font-weight:800}
+  .tot .sub{font-size:16px;color:var(--gold);font-weight:700}
   footer{font-size:11px;color:#8b6b5e;text-align:center;line-height:1.5}
 </style>
 </head>
@@ -74,12 +87,23 @@
     <input id="amount" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Montant">
     <button class="clear" id="clear" aria-label="Effacer">✕</button>
   </div>
-  <div class="hint">Astuce : tape « 35+12+8 » ou « 3*25 » pour additionner tes achats.</div>
+  <button class="add" id="add">＋ Ajouter à la liste</button>
+  <div class="hint">Touche « Ajouter » après chaque prix pour faire le total de tes achats.</div>
 </section>
 
 <section class="panel">
   <div class="lbl"><span id="outLabel">Soit en euros</span></div>
   <div class="out"><span id="result">0,00</span><small id="outCur">€</small></div>
+</section>
+
+<section class="panel" id="listPanel" style="display:none">
+  <div class="lbl"><span>Mes achats · <span id="count"></span></span>
+    <button class="clear" id="clearList" style="font-size:14px;color:var(--gold)">Tout effacer</button></div>
+  <div id="listRows" style="margin-top:6px"></div>
+  <div class="tot">
+    <div><div class="lab">TOTAL</div><div class="big2" id="totE">0,00 €</div></div>
+    <div class="sub" id="totY">¥ 0</div>
+  </div>
 </section>
 
 <div class="chips" id="chips"></div>
@@ -163,7 +187,42 @@
     try { var v=expr(); return i>=s.length && isFinite(v) ? v : NaN; } catch(e){ return NaN; }
   }
 
+  var LKEY = "cny_eur_list_v1";
+  var items = [];
+  try { items = (JSON.parse(localStorage.getItem(LKEY)) || []).filter(function(n){ return typeof n === "number" && isFinite(n); }); } catch(e){ items = []; }
+  function saveItems(){ try { localStorage.setItem(LKEY, JSON.stringify(items)); } catch(e){} }
+
+  function renderList(){
+    var box = $("listPanel"), rows = $("listRows");
+    box.style.display = items.length ? "block" : "none";
+    rows.innerHTML = "";
+    var total = 0;
+    items.forEach(function(cny, idx){
+      total += cny;
+      var d = document.createElement("div"); d.className = "row";
+      d.innerHTML = "<span class='n'>" + (idx+1) + "</span><span class='y'>¥ " + nf0.format(cny) + "</span><span class='e'>" + nf2.format(cny/state.rate) + " €</span>";
+      var b = document.createElement("button"); b.className = "x"; b.textContent = "✕"; b.setAttribute("aria-label", "Retirer");
+      b.onclick = function(){ items.splice(idx, 1); saveItems(); renderList(); };
+      d.appendChild(b); rows.appendChild(d);
+    });
+    $("count").textContent = items.length + (items.length > 1 ? " articles" : " article");
+    $("totY").textContent = "¥ " + nf0.format(total);
+    $("totE").textContent = nf2.format(total/state.rate) + " €";
+  }
+
+  function addItem(){
+    var v = evaluate(amount.value);
+    if(isNaN(v) || !v) return;
+    var cny = cnyToEur ? v : v * state.rate;
+    items.push(Math.round(cny * 100) / 100);
+    saveItems();
+    amount.value = "";
+    render();
+    amount.focus();
+  }
+
   function render(){
+    renderList();
     var v = evaluate(amount.value);
     if(isNaN(v)){ result.textContent = "…"; }
     else { result.textContent = nf2.format(cnyToEur ? v/state.rate : v*state.rate); }
@@ -249,6 +308,9 @@
   }
 
   amount.addEventListener("input", render);
+  $("add").onclick = addItem;
+  amount.addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); addItem(); } });
+  $("clearList").onclick = function(){ if(!items.length || confirm("Effacer toute la liste ?")){ items = []; saveItems(); renderList(); } };
   $("clear").onclick = function(){ amount.value=""; render(); amount.focus(); };
   $("swap").onclick = function(){
     var v = evaluate(amount.value);
